@@ -1,0 +1,22 @@
+{
+    "name": "conference-room-booking-system",
+    "version": "1.0.0",
+    "description": "Unified management for Conference Room Booking System",
+    "scripts": {
+        "install-all": "npm install && cd backend && npm install && cd ../frontend-user && npm install && cd ../frontend-admin && npm install",
+        "start-backend": "cd backend && npm run dev",
+        "start-user": "cd frontend-user && npm run dev",
+        "start-admin": "cd frontend-admin && npm run dev",
+        "dev": "npx concurrently \"npm run start-backend\" \"npm run start-user\" \"npm run start-admin\"",
+        "clean-start": "npx kill-port 5000 5173 3000 3001 && npm run dev"
+    },
+    "devDependencies": {
+        "concurrently": "^8.2.2",
+        "kill-port": "^2.0.1"
+    },
+    "dependencies": {
+        "dotenv": "^17.3.1",
+        "mongodb": "^7.1.0",
+        "pg": "^8.20.0"
+    }
+}

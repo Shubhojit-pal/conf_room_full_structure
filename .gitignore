@@ -1,0 +1,47 @@
+# ─── Dependencies ────────────────────────────────────────
+node_modules/
+**/node_modules/
+
+# ─── Environment Variables (NEVER commit secrets!) ───────
+.env
+.env.local
+.env.*.local
+backend/.env
+# Allow example templates
+!backend/.env.example
+!.env.example
+
+# ─── Build Output ────────────────────────────────────────
+frontend-user/dist/
+frontend-admin/.next/
+frontend-admin/out/
+
+# ─── OS / Editor ─────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*
+*.txt
+*.sql
+node_v.txt
+diag_report.txt
+backend/uploads/
+backend/backend_log.txt
+tmp_server_log.txt
+db_test_result.txt
+db_test.js
+diagnose.js
+fix_schema.sql
+schema-update.js
+test_cmd.txt
+test_ps_final.txt
+test_write.txt
+backend/fix-admin.js
+backend/seed.js
+
+# ─── TypeScript ──────────────────────────────────────────
+*.tsbuildinfo
+
+# ─── Vite cache ──────────────────────────────────────────
+.vite/
+**/.vite/
