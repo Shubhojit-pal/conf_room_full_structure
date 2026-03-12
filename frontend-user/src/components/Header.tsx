@@ -1,84 +1,37 @@
-/**
- * @file Header.tsx
- * @description Sticky top navigation bar for the user-facing application.
- *
- * Features:
- *  - Logo with home navigation
- *  - Primary navigation links (Home, Reserve, Calendar, My Bookings, Help)
- *  - Login button for unauthenticated users
- *  - Real-time notification bell with badge and dropdown (authenticated users)
- *  - User profile button and Sign Out button (authenticated users)
- *
- * Notification Polling:
- *  - Fetches notifications from `/api/notifications` on mount
- *  - Re-fetches every 30 seconds via `setInterval` to surface new alerts
- *  - Polling is automatically cleared when the user logs out
- *
- * @module components/Header
- */
-
-import { Buildings, Bell, User, CirclesFour, MagnifyingGlass, CalendarBlank, Ticket, SignOut } from '@phosphor-icons/react';
+import { Buildings, Bell, User, CirclesFour, MagnifyingGlass, CalendarBlank, Ticket, SignOut, List, X } from '@phosphor-icons/react';
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { fetchNotifications, markNotificationAsRead, markAllNotificationsAsRead } from '../lib/api';
 
-/**
- * Props accepted by the Header component.
- */
 interface HeaderProps {
-    /** The currently active view/page identifier (e.g., 'home', 'search'). */
     currentView: string;
-    /** Callback to switch the active view. */
     onNavigate: (view: string) => void;
 }
 
-/**
- * Shape of a single in-app notification object returned from the backend.
- */
 interface NotificationItem {
-    /** MongoDB ObjectId as a string, used for mutation calls. */
     _id: string;
-    /** Short heading shown at the top of the notification item. */
     title: string;
-    /** Full notification text describing the event. */
     message: string;
-    /** Category of the notification: 'booking', 'system', or 'reminder'. */
     type: string;
-    /** Whether the user has already seen/acknowledged this notification. */
     isRead: boolean;
-    /** ISO 8601 timestamp of when the notification was created. */
     createdAt: string;
 }
 
-/**
- * Header component — the global sticky navigation bar.
- *
- * Renders navigation links, a real-time notification bell, and user actions.
- * When the user is not logged in, only a "Log In" button is shown.
- *
- * @param {HeaderProps} props - Component props.
- * @returns {JSX.Element} The rendered sticky header element.
- */
 const Header: React.FC<HeaderProps> = ({ currentView, onNavigate }) => {
     const [showNotifications, setShowNotifications] = useState(false);
+    const [showMobileMenu, setShowMobileMenu] = useState(false);
     const [notifications, setNotifications] = useState<NotificationItem[]>([]);
     const notifRef = useRef<HTMLDivElement>(null);
     const { user, logout } = useAuth();
 
     const navItems = [
-        { id: 'home', label: 'Home', icon: <CirclesFour /> },
-        { id: 'search', label: 'Reserve a Space', icon: <MagnifyingGlass /> },
-        { id: 'calendar', label: 'Calendar', icon: <CalendarBlank /> },
-        { id: 'my-bookings', label: 'My Bookings', icon: <Ticket /> },
+        { id: 'home', label: 'Home', icon: <CirclesFour size={20} /> },
+        { id: 'search', label: 'Reserve', icon: <MagnifyingGlass size={20} /> },
+        { id: 'calendar', label: 'Calendar', icon: <CalendarBlank size={20} /> },
+        { id: 'my-bookings', label: 'Bookings', icon: <Ticket size={20} /> },
+        { id: 'notifications', label: 'Notification', icon: <Bell size={20} /> },
     ];
 
-    /**
-     * Fetches the latest notifications for the authenticated user from the API
-     * and updates the local state. Silently logs any network errors.
-     *
-     * @async
-     * @returns {Promise<void>}
-     */
     const getNotifications = async () => {
         try {
             const data = await fetchNotifications();
@@ -88,16 +41,14 @@ const Header: React.FC<HeaderProps> = ({ currentView, onNavigate }) => {
         }
     };
 
-    // Initial fetch and polling
     useEffect(() => {
         if (user) {
             getNotifications();
-            const interval = setInterval(getNotifications, 30000); // Poll every 30s
+            const interval = setInterval(getNotifications, 30000);
             return () => clearInterval(interval);
         }
     }, [user]);
 
-    // Close notifications on click outside
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
             if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
@@ -105,18 +56,9 @@ const Header: React.FC<HeaderProps> = ({ currentView, onNavigate }) => {
             }
         }
         document.addEventListener("mousedown", handleClickOutside);
-        return () => {
-            document.removeEventListener("mousedown", handleClickOutside);
-        };
+        return () => { document.removeEventListener("mousedown", handleClickOutside); };
     }, []);
 
-    /**
-     * Marks all unread notifications as read using a single API batch call.
-     * Updates local state optimistically to avoid a re-fetch.
-     *
-     * @async
-     * @returns {Promise<void>}
-     */
     const handleMarkAllRead = async () => {
         try {
             await markAllNotificationsAsRead();
@@ -126,14 +68,6 @@ const Header: React.FC<HeaderProps> = ({ currentView, onNavigate }) => {
         }
     };
 
-    /**
-     * Marks a single notification as read by its MongoDB document ID.
-     * Updates local state optimistically to immediately hide the unread indicator.
-     *
-     * @async
-     * @param {string} id - The MongoDB `_id` of the notification to mark as read.
-     * @returns {Promise<void>}
-     */
     const handleMarkRead = async (id: string) => {
         try {
             await markNotificationAsRead(id);
@@ -143,16 +77,6 @@ const Header: React.FC<HeaderProps> = ({ currentView, onNavigate }) => {
         }
     };
 
-    /**
-     * Formats an ISO 8601 date string into a human-readable relative time label.
-     *
-     * @example
-     * formatTime('2024-03-10T09:00:00Z') // → "5m ago"
-     * formatTime('2024-03-09T09:00:00Z') // → "1d ago"
-     *
-     * @param {string} dateStr - An ISO 8601 date string from the notification.
-     * @returns {string} A short relative time string (e.g., "Just now", "3h ago", "2d ago").
-     */
     const formatTime = (dateStr: string) => {
         const date = new Date(dateStr);
         const now = new Date();
@@ -160,7 +84,6 @@ const Header: React.FC<HeaderProps> = ({ currentView, onNavigate }) => {
         const diffInMins = Math.floor(diffInMs / (1000 * 60));
         const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
         const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
-
         if (diffInMins < 1) return 'Just now';
         if (diffInMins < 60) return `${diffInMins}m ago`;
         if (diffInHours < 24) return `${diffInHours}h ago`;
@@ -169,144 +92,252 @@ const Header: React.FC<HeaderProps> = ({ currentView, onNavigate }) => {
 
     const unreadCount = notifications.filter(n => !n.isRead).length;
 
-    return (
-        <header className="sticky top-0 z-50 bg-white border-b border-slate-200 py-4">
-            <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
-                {/* Logo */}
-                <div
-                    className="flex items-center gap-3 font-bold text-xl text-slate-800 cursor-pointer"
-                    onClick={() => onNavigate('home')}
-                >
-                    <div className="bg-primary text-white p-1.5 rounded-md flex">
-                        <Buildings size={24} weight="regular" />
-                    </div>
-                    <span>RoomBook</span>
-                </div>
+    const navigate = (view: string) => {
+        onNavigate(view);
+        setShowMobileMenu(false);
+        setShowNotifications(false);
+    };
 
-                {/* Navigation */}
-                <nav className="hidden md:flex gap-1 bg-slate-50 p-1.5 rounded-xl border border-slate-100">
-                    {navItems.map((item) => (
+    return (
+        <>
+            {/* ─── Top Header ─── */}
+            <header className="sticky top-0 z-50 bg-white border-b border-slate-200 py-4">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 flex justify-between items-center">
+                    {/* Logo */}
+                    <div
+                        className="flex items-center gap-3 font-bold text-xl text-slate-800 cursor-pointer"
+                        onClick={() => navigate('home')}
+                    >
+                        <div className="bg-primary text-white p-1.5 rounded-md flex">
+                            <Buildings size={24} weight="regular" />
+                        </div>
+                        <span>RoomBook</span>
+                    </div>
+
+                    {/* Desktop Navigation */}
+                    <nav className="hidden md:flex gap-1 bg-slate-50 p-1.5 rounded-xl border border-slate-100">
+                        {navItems.map((item) => (
+                            <button
+                                key={item.id}
+                                onClick={() => navigate(item.id)}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${currentView === item.id
+                                    ? 'bg-white text-primary shadow-sm'
+                                    : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+                                    }`}
+                            >
+                                {item.label}
+                            </button>
+                        ))}
                         <button
-                            key={item.id}
-                            onClick={() => onNavigate(item.id)}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${currentView === item.id
+                            onClick={() => navigate('help')}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${currentView === 'help'
                                 ? 'bg-white text-primary shadow-sm'
                                 : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
                                 }`}
                         >
-                            {/* <span className="hidden lg:inline">{item.icon}</span> */}
-                            {item.label}
+                            Help
                         </button>
-                    ))}
-                    <button
-                        onClick={() => onNavigate('help')}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${currentView === 'help'
-                            ? 'bg-white text-primary shadow-sm'
-                            : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
-                            }`}
-                    >
-                        Help
-                    </button>
-                </nav>
+                    </nav>
 
-                {/* Actions */}
-                <div className="flex items-center gap-4">
-                    {!user ? (
-                        <button
-                            onClick={() => onNavigate('login')}
-                            className="bg-primary hover:bg-primary-dark text-white px-5 py-2 rounded-lg font-medium transition-colors shadow-sm"
-                        >
-                            Log In
-                        </button>
-                    ) : (
-                        <>
-                            {/* Notification Wrapper */}
-                            <div className="relative" ref={notifRef}>
+                    {/* Actions */}
+                    <div className="flex items-center gap-2 sm:gap-4">
+                        {!user ? (
+                            <>
                                 <button
-                                    className="relative text-slate-500 hover:text-slate-700 transition-colors p-2"
-                                    onClick={() => setShowNotifications(!showNotifications)}
+                                    onClick={() => navigate('login')}
+                                    className="bg-primary hover:bg-primary-dark text-white px-5 py-2 rounded-lg font-medium transition-colors shadow-sm text-sm"
                                 >
-                                    <Bell size={24} />
-                                    {unreadCount > 0 && (
-                                        <span className="absolute top-0 right-0 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full ring-2 ring-white">
-                                            {unreadCount}
-                                        </span>
+                                    Log In
+                                </button>
+                                {/* Mobile menu for unauthenticated users */}
+                                <button
+                                    className="md:hidden p-2 rounded-lg text-slate-600 hover:bg-slate-100"
+                                    onClick={() => setShowMobileMenu(v => !v)}
+                                >
+                                    {showMobileMenu ? <X size={22} /> : <List size={22} />}
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                {/* Notification Bell */}
+                                <div className="relative" ref={notifRef}>
+                                    <button
+                                        className="relative text-slate-500 hover:text-slate-700 transition-colors p-2"
+                                        onClick={() => setShowNotifications(v => !v)}
+                                    >
+                                        <Bell size={24} />
+                                        {unreadCount > 0 && (
+                                            <span className="absolute top-0 right-0 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full ring-2 ring-white">
+                                                {unreadCount > 9 ? '9+' : unreadCount}
+                                            </span>
+                                        )}
+                                    </button>
+
+                                    {/* Notification Dropdown — constrained for mobile */}
+                                    {showNotifications && (
+                                        <div
+                                            className="absolute top-full mt-2 w-[calc(100vw-2rem)] sm:w-80 max-w-sm bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden z-[100]"
+                                            style={{ right: 0, maxHeight: '70vh' }}
+                                        >
+                                            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                                                <h3 className="font-bold text-slate-800">Notifications</h3>
+                                                <button
+                                                    onClick={handleMarkAllRead}
+                                                    className="text-xs text-primary font-medium hover:underline"
+                                                >
+                                                    Mark all read
+                                                </button>
+                                            </div>
+                                            <div className="overflow-y-auto" style={{ maxHeight: 'calc(70vh - 110px)' }}>
+                                                {notifications.length === 0 ? (
+                                                    <div className="p-8 text-center text-slate-400 text-sm">
+                                                        No notifications yet
+                                                    </div>
+                                                ) : (
+                                                    notifications.map((notif) => (
+                                                        <div
+                                                            key={notif._id}
+                                                            onClick={() => !notif.isRead && handleMarkRead(notif._id)}
+                                                            className={`p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer ${!notif.isRead ? 'bg-blue-50/30' : ''}`}
+                                                        >
+                                                            <div className="flex justify-between items-start mb-1 gap-2">
+                                                                <h4 className={`text-sm flex-1 ${notif.title === 'Booking Approved' ? 'text-primary font-bold' : !notif.isRead ? 'font-bold text-slate-800' : 'font-medium text-slate-600'}`}>
+                                                                    {notif.title}
+                                                                </h4>
+                                                                <span className="text-[10px] text-slate-400 whitespace-nowrap shrink-0">{formatTime(notif.createdAt)}</span>
+                                                            </div>
+                                                            <p className="text-xs text-slate-500 leading-relaxed">{notif.message}</p>
+                                                        </div>
+                                                    ))
+                                                )}
+                                            </div>
+                                            <div className="p-3 text-center border-t border-slate-100 bg-slate-50/30">
+                                                <button
+                                                    onClick={() => navigate('my-bookings')}
+                                                    className="text-xs font-bold text-slate-600 hover:text-primary transition-colors"
+                                                >
+                                                    View All Activity
+                                                </button>
+                                            </div>
+                                        </div>
                                     )}
+                                </div>
+
+                                {/* Profile Button (desktop) */}
+                                <button
+                                    onClick={() => navigate('profile')}
+                                    className={`hidden sm:flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${currentView === 'profile' ? 'bg-primary-dark text-white ring-2 ring-primary ring-offset-2' : 'bg-primary hover:bg-primary-dark text-white'}`}
+                                >
+                                    <User size={20} />
+                                    <span>{user.name.split(' ')[0]}</span>
                                 </button>
 
-                                {/* Dropdown */}
-                                {showNotifications && (
-                                    <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden animate-fade-in z-50">
-                                        <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                                            <h3 className="font-bold text-slate-800">Notifications</h3>
-                                            <button 
-                                                onClick={handleMarkAllRead}
-                                                className="text-xs text-primary font-medium hover:underline"
-                                            >
-                                                Mark all read
-                                            </button>
-                                        </div>
-                                        <div className="max-h-[300px] overflow-y-auto">
-                                            {notifications.length === 0 ? (
-                                                <div className="p-8 text-center text-slate-400 text-sm">
-                                                    No notifications yet
-                                                </div>
-                                            ) : (
-                                                notifications.map((notif) => (
-                                                    <div 
-                                                        key={notif._id} 
-                                                        onClick={() => !notif.isRead && handleMarkRead(notif._id)}
-                                                        className={`p-4 border-b border-slate-50 hover:bg-slate-50 transition-colors cursor-pointer ${!notif.isRead ? 'bg-blue-50/30' : ''}`}
-                                                    >
-                                                        <div className="flex justify-between items-start mb-1">
-                                                            <h4 className={`text-sm ${notif.title === 'Booking Approved' ? 'text-primary font-bold' : !notif.isRead ? 'font-bold text-slate-800' : 'font-medium text-slate-600'}`}>
-                                                                {notif.title}
-                                                            </h4>
-                                                            <span className="text-[10px] text-slate-400">{formatTime(notif.createdAt)}</span>
-                                                        </div>
-                                                        <p className="text-xs text-slate-500 leading-relaxed">{notif.message}</p>
-                                                    </div>
-                                                ))
-                                            )}
-                                        </div>
-                                        <div className="p-3 text-center border-t border-slate-100 bg-slate-50/30">
-                                            <button 
-                                                onClick={() => {
-                                                    setShowNotifications(false);
-                                                    onNavigate('my-bookings');
-                                                }}
-                                                className="text-xs font-bold text-slate-600 hover:text-primary transition-colors"
-                                            >
-                                                View All Activity
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
+                                {/* Sign Out (desktop) */}
+                                <button
+                                    onClick={logout}
+                                    title="Sign Out"
+                                    className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-lg text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors text-sm font-medium"
+                                >
+                                    <SignOut size={18} />
+                                </button>
 
-                            <button
-                                onClick={() => onNavigate('profile')}
-                                className={`
-                                    flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors
-                                    ${currentView === 'profile' ? 'bg-primary-dark text-white ring-2 ring-primary ring-offset-2' : 'bg-primary hover:bg-primary-dark text-white'}
-                                `}
-                            >
-                                <User size={20} />
-                                <span>{user.name.split(' ')[0]}</span>
-                            </button>
-                            <button
-                                onClick={logout}
-                                title="Sign Out"
-                                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors text-sm font-medium"
-                            >
-                                <SignOut size={18} />
-                                <span className="hidden lg:inline">Sign Out</span>
-                            </button>
-                        </>
-                    )}
+                                {/* Hamburger (mobile only) */}
+                                <button
+                                    className="sm:hidden p-2 rounded-lg text-slate-600 hover:bg-slate-100"
+                                    onClick={() => setShowMobileMenu(v => !v)}
+                                >
+                                    {showMobileMenu ? <X size={22} /> : <List size={22} />}
+                                </button>
+                            </>
+                        )}
+                    </div>
                 </div>
-            </div>
-        </header>
+
+                {/* Mobile Dropdown Menu */}
+                {showMobileMenu && (
+                    <div className="md:hidden border-t border-slate-100 bg-white px-4 pb-4 pt-2">
+                        <div className="flex flex-col gap-1">
+                            {navItems.map((item) => (
+                                <button
+                                    key={item.id}
+                                    onClick={() => navigate(item.id)}
+                                    className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-left ${currentView === item.id
+                                        ? 'bg-white text-primary shadow-sm border border-slate-100'
+                                        : 'text-slate-600 hover:bg-slate-50'
+                                        }`}
+                                >
+                                    {item.icon}
+                                    {item.label === 'Reserve' ? 'Reserve a Space' : item.label}
+                                </button>
+                            ))}
+                            <button
+                                onClick={() => navigate('help')}
+                                className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-left ${currentView === 'help'
+                                    ? 'bg-white text-primary shadow-sm border border-slate-100'
+                                    : 'text-slate-600 hover:bg-slate-50'
+                                    }`}
+                            >
+                                Help
+                            </button>
+                            {user && (
+                                <>
+                                    <hr className="my-1 border-slate-100" />
+                                    <button
+                                        onClick={() => navigate('profile')}
+                                        className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50"
+                                    >
+                                        <User size={20} />
+                                        Profile ({user.name.split(' ')[0]})
+                                    </button>
+                                    <button
+                                        onClick={logout}
+                                        className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-red-500 hover:bg-red-50"
+                                    >
+                                        <SignOut size={20} />
+                                        Sign Out
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </header>
+
+            {/* ─── Mobile Bottom Navigation Bar (authenticated only) ─── */}
+            {user && (
+                <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 shadow-lg">
+                    <div className="flex justify-around items-center px-1 py-2">
+                        {navItems.map((item) => {
+                            const isActive = currentView === item.id;
+                            const isNotif = item.id === 'notifications';
+                            return (
+                                <button
+                                    key={item.id}
+                                    onClick={() => navigate(item.id)}
+                                    className={`flex flex-col items-center gap-0.5 px-1 py-1.5 rounded-xl flex-1 transition-all ${isActive
+                                        ? 'text-primary'
+                                        : 'text-slate-400 hover:text-slate-600'
+                                        }`}
+                                >
+                                    <div className={`relative p-1 rounded-lg transition-all ${isActive ? 'bg-primary/10' : ''}`}>
+                                        {item.icon}
+                                        {isNotif && unreadCount > 0 && (
+                                            <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[8px] font-black w-4 h-4 flex items-center justify-center rounded-full ring-1 ring-white">
+                                                {unreadCount > 9 ? '9+' : unreadCount}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <span className={`text-[10px] font-semibold ${isActive ? 'text-primary' : 'text-slate-400'}`}>
+                                        {item.label}
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </nav>
+            )}
+
+        </>
     );
 };
 

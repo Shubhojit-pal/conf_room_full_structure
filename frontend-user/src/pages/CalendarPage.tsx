@@ -385,18 +385,18 @@ const CalendarPage: React.FC<CalendarPageProps> = () => {
     }, []);
 
     return (
-        <div className="max-w-7xl mx-auto px-6 py-8 relative">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-8 relative pb-24 md:pb-8">
             {/* Header Section */}
-            <div className="flex justify-between items-end mb-8">
+            <div className="flex justify-between items-end mb-4 sm:mb-8">
                 <div>
-                    <h1 className="text-3xl font-bold text-slate-900">Booking Calendar</h1>
-                    <p className="text-slate-500 mt-2">View all bookings and availability across locations</p>
+                    <h1 className="text-xl sm:text-3xl font-bold text-slate-900 bg-gradient-to-r from-violet-700 to-indigo-600 bg-clip-text text-transparent">Booking Calendar</h1>
+                    <p className="text-slate-500 mt-1 text-sm sm:text-base">View and manage bookings</p>
                 </div>
             </div>
 
             {/* Filters */}
-            <div className="bg-white border border-slate-200 rounded-xl p-5 mb-6 shadow-sm">
-                <div className="grid grid-cols-2 gap-6 mb-4">
+            <div className="bg-white border border-slate-200 rounded-xl p-3 sm:p-5 mb-4 sm:mb-6 shadow-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6 mb-4">
                     <div>
                         <label className="block text-sm font-medium text-slate-600 mb-2">Filter by Location</label>
                         <select
@@ -548,11 +548,11 @@ const CalendarPage: React.FC<CalendarPageProps> = () => {
             )}
 
             {/* Calendar Grid */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-3 sm:p-6 lg:p-8">
                 {/* Calendar Header with View Options */}
-                <div className="flex justify-between items-center mb-8">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-8 gap-3">
                     <div>
-                        <h2 className="text-2xl font-bold text-slate-800">
+                        <h2 className="text-lg sm:text-2xl font-bold text-slate-800">
                             {viewType === 'month'
                                 ? `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`
                                 : viewType === 'week'
@@ -601,18 +601,18 @@ const CalendarPage: React.FC<CalendarPageProps> = () => {
                 </div>
 
                 {/* Legend */}
-                <div className="flex gap-6 mb-8 pb-6 border-b border-slate-200">
-                    <div className="flex items-center gap-2">
-                        <div className="w-4 h-4 bg-green-100 border-2 border-green-500 rounded"></div>
-                        <span className="text-sm text-slate-600">Booked</span>
+                <div className="flex gap-3 sm:gap-6 mb-4 sm:mb-8 pb-4 sm:pb-6 border-b border-slate-200 overflow-x-auto">
+                    <div className="flex items-center gap-1.5 shrink-0">
+                        <div className="w-3 h-3 sm:w-4 sm:h-4 bg-green-100 border-2 border-green-500 rounded"></div>
+                        <span className="text-xs sm:text-sm text-slate-600 whitespace-nowrap">Booked</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <div className="w-4 h-4 bg-yellow-100 border-2 border-yellow-500 rounded"></div>
-                        <span className="text-sm text-slate-600">Pending Approval</span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                        <div className="w-3 h-3 sm:w-4 sm:h-4 bg-yellow-100 border-2 border-yellow-500 rounded"></div>
+                        <span className="text-xs sm:text-sm text-slate-600 whitespace-nowrap">Pending</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <div className="w-4 h-4 bg-blue-100 border-2 border-blue-500 rounded"></div>
-                        <span className="text-sm text-slate-600">Available</span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                        <div className="w-3 h-3 sm:w-4 sm:h-4 bg-indigo-100 border-2 border-indigo-400 rounded"></div>
+                        <span className="text-xs sm:text-sm text-slate-600 whitespace-nowrap">Available</span>
                     </div>
                 </div>
 
@@ -620,7 +620,7 @@ const CalendarPage: React.FC<CalendarPageProps> = () => {
                 {viewType === 'month' && (
                     <div className="month-view">
                         {/* Days Grid */}
-                        <div className="grid grid-cols-7 gap-4">
+                        <div className="grid grid-cols-7 gap-1 sm:gap-2 lg:gap-4">
                             {/* Empty cells for start padding */}
                             {Array.from({ length: getFirstDayOfMonth(currentDate) }).map((_, i) => (
                                 <div key={`empty-${i}`} className="aspect-square"></div>
@@ -665,17 +665,17 @@ const CalendarPage: React.FC<CalendarPageProps> = () => {
                                                 handleDateClick(day);
                                             }}
                                             className={`
-                                                aspect-[4/3] rounded-xl border-2 flex flex-col p-3 transition-all hover:shadow-md
+                                                aspect-[4/3] rounded-lg sm:rounded-xl border-2 flex flex-col p-1 sm:p-2 lg:p-3 transition-all hover:shadow-md
                                                 ${isPast
                                                     ? 'bg-slate-100/50 border-slate-200 text-slate-400 opacity-60 cursor-not-allowed'
                                                     : isSelected
-                                                        ? 'bg-primary/10 border-primary ring-2 ring-primary/40 cursor-pointer shadow-md'
+                                                        ? 'bg-indigo-50 border-indigo-500 ring-1 sm:ring-2 ring-indigo-300/60 cursor-pointer shadow-md'
                                                         : `${statusColors[status]} cursor-pointer`
                                                 }
                                             `}
                                         >
                                             <div className="flex items-center justify-between">
-                                                <span className={`font-bold ${isPast ? 'text-slate-400' : isSelected ? 'text-primary' : 'text-slate-800'}`}>{day}</span>
+                                                <span className={`font-bold text-xs sm:text-sm lg:text-base ${isPast ? 'text-slate-400' : isSelected ? 'text-indigo-700' : 'text-slate-800'}`}>{day}</span>
                                                 {isSelected && (
                                                     <span className="w-4 h-4 rounded-full bg-primary flex items-center justify-center">
                                                         <span className="text-white text-[8px] font-black">✓</span>
@@ -683,12 +683,12 @@ const CalendarPage: React.FC<CalendarPageProps> = () => {
                                                 )}
                                             </div>
                                             {dayBookings.length > 0 && (
-                                                <div className="mt-1">
-                                                    <span className={`text-xs block ${isPast ? 'text-slate-400' : 'text-slate-600'}`}>
+                                                <div className="mt-0.5 hidden sm:block">
+                                                    <span className={`text-[10px] block truncate ${isPast ? 'text-slate-400' : 'text-slate-600'}`}>
                                                         {dayBookings[0].room.split(' ')[0]}
                                                     </span>
                                                     {dayBookings[0].timeSlot && (
-                                                        <span className="text-[10px] text-slate-500 block mt-0.5">{dayBookings[0].timeSlot}</span>
+                                                        <span className="text-[9px] text-slate-500 block mt-0.5 hidden lg:block">{dayBookings[0].timeSlot}</span>
                                                     )}
                                                 </div>
                                             )}

@@ -15,6 +15,7 @@ import ProfilePage from './pages/ProfilePage'
 import LoginPage from './pages/LoginPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
+import NotificationsPage from './pages/NotificationsPage'
 import { useAuth } from './context/AuthContext'
 
 export interface SelectedRoom {
@@ -188,6 +189,8 @@ function App() {
                 return <HelpCenterPage onNavigate={navigateTo} onAlert={(msg, type) => alert(`[${type}] ${msg}`)} />;
             case 'profile':
                 return <ProfilePage onViewBookings={() => navigateTo('my-bookings')} />;
+            case 'notifications':
+                return <NotificationsPage onNavigate={navigateTo} onViewTicket={navigateToTicket} />;
             default:
                 return (
                     <>
@@ -208,7 +211,7 @@ function App() {
     return (
         <div className="min-h-screen bg-slate-50 flex flex-col">
             <Header currentView={currentView} onNavigate={navigateTo} />
-            <main className="flex-grow">
+            <main className="flex-grow pb-20 md:pb-0">
                 {renderContent()}
             </main>
             <Footer onNavigate={navigateTo} />
