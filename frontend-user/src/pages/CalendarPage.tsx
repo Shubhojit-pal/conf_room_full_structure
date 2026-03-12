@@ -735,97 +735,97 @@ const CalendarPage: React.FC<CalendarPageProps> = () => {
                 {viewType === 'week' && (
                     <div className="week-view">
 
-                        {/* ── MOBILE: Vertical day cards ─────────────────── */}
-                        <div className="md:hidden space-y-3">
+                        {/* ── MOBILE: Vertical Agenda List ─────────────────── */}
+                        <div className="md:hidden space-y-4">
                             {getWeekDays(currentDate).map((date) => {
                                 const dateStr = dateToString(date);
                                 const isToday = dateStr === dateToString(new Date());
                                 const isPast = isPastDate(dateStr);
                                 const dayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][date.getDay()];
-                                const dayBookings = getBookingsForDate(dateStr);
+                                
+                                // Get unique bookings for the day (to avoid dupes if they span multiple slots)
+                                const rawBookings = getBookingsForDate(dateStr);
+                                const uniqueBookingsMap = new Map();
+                                rawBookings.forEach(b => uniqueBookingsMap.set(b.id || b.room + b.timeSlot, b));
+                                const dayBookings = Array.from(uniqueBookingsMap.values());
 
                                 return (
                                     <div
                                         key={dateStr}
-                                        className={`rounded-xl border-2 overflow-hidden ${isToday ? 'border-primary' : isPast ? 'border-slate-200' : 'border-slate-200'}`}
+                                        className={`rounded-2xl border-2 overflow-hidden bg-white ${isToday ? 'border-primary shadow-md shadow-primary/10' : isPast ? 'border-slate-100 opacity-75' : 'border-slate-200 shadow-sm'}`}
                                     >
                                         {/* Day header */}
-                                        <div className={`px-4 py-3 flex items-center justify-between ${isToday ? 'bg-primary text-white' : isPast ? 'bg-slate-50' : 'bg-slate-50'}`}>
+                                        <div className={`px-4 py-3 flex items-center justify-between ${isToday ? 'bg-primary text-white' : isPast ? 'bg-slate-50' : 'bg-slate-50 border-b border-slate-100'}`}>
                                             <div>
-                                                <span className={`text-xs font-bold uppercase tracking-widest ${isToday ? 'text-white/80' : 'text-slate-400'}`}>{dayName}</span>
-                                                <p className={`text-xl font-black leading-none mt-0.5 ${isToday ? 'text-white' : isPast ? 'text-slate-400' : 'text-slate-800'}`}>
-                                                    {monthNames[date.getMonth()].slice(0,3)} {date.getDate()}
+                                                <span className={`text-[10px] font-bold uppercase tracking-widest ${isToday ? 'text-white/80' : 'text-slate-500'}`}>{dayName}</span>
+                                                <p className={`text-lg font-black leading-none mt-0.5 ${isToday ? 'text-white' : isPast ? 'text-slate-400' : 'text-slate-800'}`}>
+                                                    {monthNames[date.getMonth()].substring(0,3)} {date.getDate()}
                                                 </p>
                                             </div>
-                                            {isToday && <span className="bg-white/20 text-white text-[10px] font-bold px-2 py-1 rounded-full">Today</span>}
-                                            {isPast && !isToday && <span className="text-slate-400 text-[10px] font-semibold">Past</span>}
+                                            {isToday && <span className="bg-white/20 text-white text-[9px] font-bold px-2 py-1 rounded-full uppercase tracking-wider">Today</span>}
                                         </div>
 
-                                        {/* Slots/Bookings */}
-                                        <div className="p-3 space-y-2">
-                                            {ALL_SLOTS.map((slot, idx) => {
-                                                const isPastHour = isPastDateTime(dateStr, slot.startH);
-                                                const slotBookings = dayBookings.filter(b => {
-                                                    if (b.selectedSlots) {
-                                                        return b.selectedSlots.split(',').some(s => s.startsWith(slot.start));
-                                                    }
-                                                    const ts = b.timeSlot || '';
-                                                    const parts = ts.split(' - ');
-                                                    if (parts.length < 2) return false;
-                                                    const bStartH = parseInt(parts[0].split(':')[0]);
-                                                    const bEndH = parseInt(parts[1].split(':')[0]);
-                                                    return slot.startH >= bStartH && slot.startH < bEndH;
-                                                });
-                                                const hasBooking = slotBookings.length > 0;
-                                                const booking = slotBookings[0];
-
-                                                return (
-                                                    <div key={idx} className={`flex items-start gap-2.5 ${isPastHour ? 'opacity-40' : ''}`}>
-                                                        {/* Time label */}
-                                                        <span className="text-[11px] font-semibold text-slate-400 w-12 shrink-0 pt-1.5">
-                                                            {String(slot.startH).padStart(2,'0')}:00
-                                                        </span>
-                                                        {/* Booking chip or empty slot */}
-                                                        {hasBooking && booking ? (
-                                                            <button
-                                                                className={`flex-1 text-left rounded-lg px-2.5 py-2 border-l-4 ${booking.status === 'booked'
-                                                                    ? 'bg-green-50 border-green-500'
-                                                                    : 'bg-yellow-50 border-yellow-500'
-                                                                }`}
-                                                                onClick={() => {
-                                                                    setDetailDate(dateStr);
-                                                                    setIsDetailOpen(true);
-                                                                }}
-                                                            >
-                                                                <p className={`text-xs font-bold truncate ${booking.status === 'booked' ? 'text-green-700' : 'text-yellow-700'}`}>
+                                        {/* Bookings List */}
+                                        <div className="p-3 pb-4">
+                                            {dayBookings.length > 0 ? (
+                                                <div className="space-y-2">
+                                                    {dayBookings.map((booking, idx) => (
+                                                        <button
+                                                            key={idx}
+                                                            className={`w-full flex items-center gap-3 text-left rounded-[1rem] p-3 border transition-transform active:scale-[0.98] ${booking.status === 'booked'
+                                                                ? 'bg-emerald-50/50 border-emerald-100 hover:border-emerald-200'
+                                                                : 'bg-amber-50/50 border-amber-100 hover:border-amber-200'
+                                                            }`}
+                                                            onClick={() => {
+                                                                setDetailDate(dateStr);
+                                                                setIsDetailOpen(true);
+                                                            }}
+                                                        >
+                                                            <div className={`w-1.5 h-10 rounded-full ${booking.status === 'booked' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className={`text-sm font-bold truncate ${booking.status === 'booked' ? 'text-emerald-900' : 'text-amber-900'}`}>
                                                                     {booking.room}
                                                                 </p>
-                                                                {booking.purpose && (
-                                                                    <p className="text-[10px] text-slate-500 truncate">{booking.purpose}</p>
-                                                                )}
-                                                                <p className="text-[10px] text-slate-400">👤 {booking.bookedBy}</p>
-                                                            </button>
-                                                        ) : (
-                                                            <button
-                                                                disabled={isPastHour || isPast}
-                                                                onClick={() => {
-                                                                    if (isPastHour || isPast) return;
-                                                                    setDateSlots({ [dateStr]: [idx] });
-                                                                    setActiveDate(dateStr);
-                                                                    setSelectedDates([dateStr]);
-                                                                    setIsModalOpen(true);
-                                                                }}
-                                                                className={`flex-1 rounded-lg border border-dashed text-[10px] py-1.5 font-semibold transition-colors ${isPastHour || isPast
-                                                                    ? 'border-slate-200 text-slate-300 cursor-not-allowed'
-                                                                    : 'border-primary/30 text-primary/60 hover:bg-primary/5 hover:border-primary cursor-pointer'
-                                                                }`}
-                                                            >
-                                                                {isPastHour || isPast ? '—' : '+ Book this slot'}
-                                                            </button>
-                                                        )}
+                                                                <p className={`text-[11px] font-semibold mt-0.5 ${booking.status === 'booked' ? 'text-emerald-600/80' : 'text-amber-600/80'}`}>
+                                                                    {booking.timeSlot}
+                                                                </p>
+                                                            </div>
+                                                        </button>
+                                                    ))}
+                                                    
+                                                    {!isPast && (
+                                                        <button
+                                                            onClick={() => {
+                                                                setActiveDate(dateStr);
+                                                                setSelectedDates([dateStr]);
+                                                                setIsModalOpen(true);
+                                                            }}
+                                                            className="w-full mt-3 py-2.5 rounded-xl border border-dashed border-primary/30 text-primary hover:bg-primary/5 text-xs font-bold transition-colors"
+                                                        >
+                                                            + Add another booking
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <div className="py-5 text-center px-4">
+                                                    <div className="w-10 h-10 rounded-full bg-slate-50 mx-auto mb-2 flex items-center justify-center text-slate-300">
+                                                        <CalendarBlank size={20} weight="fill" />
                                                     </div>
-                                                );
-                                            })}
+                                                    <p className="text-sm text-slate-400 font-medium mb-4">No bookings on this day.</p>
+                                                    {!isPast && (
+                                                        <button
+                                                            onClick={() => {
+                                                                setActiveDate(dateStr);
+                                                                setSelectedDates([dateStr]);
+                                                                setIsModalOpen(true);
+                                                            }}
+                                                            className="text-xs font-bold bg-primary/10 hover:bg-primary/20 transition-colors text-primary px-5 py-2.5 rounded-[1rem]"
+                                                        >
+                                                            Reserve a Room
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 );
