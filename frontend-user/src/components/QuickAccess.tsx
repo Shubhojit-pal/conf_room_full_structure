@@ -8,7 +8,8 @@ import {
     Check,
     Clock,
     XCircle,
-    Calendar
+    Calendar,
+    X
 } from '@phosphor-icons/react';
 import React, { useState } from 'react';
 import { getDirectImageUrl } from '../lib/imageUtils';
@@ -26,6 +27,9 @@ const QuickAccess: React.FC<QuickAccessProps> = ({ onViewAvailableToday, onSearc
     const [location, setLocation] = useState('All Locations');
     const [capacity, setCapacity] = useState('Any Capacity');
     const [date, setDate] = useState('');
+
+    // State for mobile Quick Booking modal
+    const [isMobileModalOpen, setIsMobileModalOpen] = useState(false);
 
     const toggleFavorite = (index: number) => {
         setFavorites(prev => ({ ...prev, [index]: !prev[index] }));
@@ -62,7 +66,7 @@ const QuickAccess: React.FC<QuickAccessProps> = ({ onViewAvailableToday, onSearc
 
     return (
         <section className="pb-20 px-6">
-            <div className="max-w-7xl mx-auto">
+            <div className="max-w-7xl mx-auto relative">
                 <div className="text-center mb-12">
                     <h2 className="text-3xl font-bold text-slate-900 mb-2">Quick Access</h2>
                     <p className="text-slate-500">Manage your bookings and discover your favorite spaces</p>
@@ -100,8 +104,8 @@ const QuickAccess: React.FC<QuickAccessProps> = ({ onViewAvailableToday, onSearc
                         <p className="text-center text-primary text-sm font-medium hover:underline mt-4">View all available rooms →</p>
                     </div>
 
-                    {/* Quick Booking */}
-                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 border-t-4 border-t-primary">
+                    {/* Quick Booking - Desktop Only */}
+                    <div className="hidden lg:block bg-white rounded-2xl p-6 shadow-sm border border-slate-200 border-t-4 border-t-primary">
                         <div className="flex items-center gap-4 mb-6">
                             <div className="p-2 rounded-lg bg-primary-light text-primary">
                                 <CalendarPlus size={24} weight="fill" />
@@ -231,6 +235,77 @@ const QuickAccess: React.FC<QuickAccessProps> = ({ onViewAvailableToday, onSearc
                     </div>
                 </div>
             </div>
+
+            {/* ── MOBILE: Floating Action Button (FAB) ── */}
+            <button
+                className="lg:hidden fixed bottom-[90px] right-6 z-[60] bg-primary text-white p-4 rounded-full shadow-lg shadow-primary/30 active:scale-95 transition-transform"
+                onClick={() => setIsMobileModalOpen(true)}
+            >
+                <CalendarPlus size={26} weight="fill" />
+            </button>
+
+            {/* ── MOBILE: Quick Booking Modal ── */}
+            {isMobileModalOpen && (
+                <div className="lg:hidden fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-sm flex items-end justify-center p-4">
+                    <div className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl relative animate-in slide-in-from-bottom-8 duration-300">
+                        <button
+                            onClick={() => setIsMobileModalOpen(false)}
+                            className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 bg-slate-100 rounded-full"
+                        >
+                            <X size={20} weight="bold" />
+                        </button>
+                        
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="p-2 rounded-xl bg-primary-light text-primary">
+                                <CalendarPlus size={24} weight="fill" />
+                            </div>
+                            <h3 className="text-xl font-bold text-slate-800">Quick Booking</h3>
+                        </div>
+
+                        <form className="flex flex-col gap-5" onSubmit={handleFindRooms}>
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-2">Location</label>
+                                <select
+                                    value={location}
+                                    onChange={(e) => setLocation(e.target.value)}
+                                    className="w-full p-3.5 rounded-xl border border-slate-200 text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-slate-50 font-medium"
+                                >
+                                    <option>All Locations</option>
+                                    <option>Downtown Office</option>
+                                    <option>Tech Park Campus</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-2">Capacity</label>
+                                <select
+                                    value={capacity}
+                                    onChange={(e) => setCapacity(e.target.value)}
+                                    className="w-full p-3.5 rounded-xl border border-slate-200 text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-slate-50 font-medium"
+                                >
+                                    <option>Any Capacity</option>
+                                    <option>2-6 People</option>
+                                    <option>10+ People</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-2">Date</label>
+                                <input
+                                    type="date"
+                                    value={date}
+                                    onChange={(e) => setDate(e.target.value)}
+                                    className="w-full p-3.5 rounded-xl border border-slate-200 text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-slate-50 font-medium"
+                                />
+                            </div>
+                            <button type="submit" className="mt-4 w-full bg-primary hover:bg-primary-dark text-white font-bold py-4 rounded-xl shadow-lg shadow-primary/20 transition-transform active:scale-[0.98]">
+                                Find Available Rooms
+                            </button>
+                            <a href="#" onClick={(e) => { setIsMobileModalOpen(false); handleAdvancedSearch(e); }} className="text-center text-primary text-sm font-semibold hover:underline bg-primary/5 py-3 rounded-xl">
+                                Advanced Search →
+                            </a>
+                        </form>
+                    </div>
+                </div>
+            )}
         </section>
     );
 };
