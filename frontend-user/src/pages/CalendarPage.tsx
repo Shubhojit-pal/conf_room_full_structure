@@ -5,7 +5,8 @@ import {
     CalendarBlank,
     CaretDown,
     Lock,
-    Eye
+    Eye,
+    Funnel
 } from '@phosphor-icons/react';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { fetchAllBookings, getCurrentUser, Booking, fetchRooms, createBooking, Room, fetchRoomAvailability, BookedSlot } from '../lib/api';
@@ -53,9 +54,11 @@ const CalendarPage: React.FC<CalendarPageProps> = () => {
     // Applied filters (used for actual filtering)
     const [filterLocation, setFilterLocation] = useState('all');
     const [filterTimeSlot, setFilterTimeSlot] = useState('all');
-    // Pending filters (bound to the dropdowns, only applied on button click)
     const [pendingLocation, setPendingLocation] = useState('all');
     const [pendingTimeSlot, setPendingTimeSlot] = useState('all');
+
+    // State for Mobile Filter Modal
+    const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
 
     // Real booking data from API
     const [bookingEvents, setBookingEvents] = useState<BookingEvent[]>([]);
@@ -394,8 +397,8 @@ const CalendarPage: React.FC<CalendarPageProps> = () => {
                 </div>
             </div>
 
-            {/* Filters */}
-            <div className="bg-white border border-slate-200 rounded-xl p-3 sm:p-5 mb-4 sm:mb-6 shadow-sm">
+            {/* ── DESKTOP: Filters ── */}
+            <div className="hidden md:block bg-white border border-slate-200 rounded-xl p-3 sm:p-5 mb-4 sm:mb-6 shadow-sm">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6 mb-4">
                     <div>
                         <label className="block text-sm font-medium text-slate-600 mb-2">Filter by Location</label>
@@ -456,6 +459,97 @@ const CalendarPage: React.FC<CalendarPageProps> = () => {
                     </div>
                 </div>
             </div>
+
+            {/* ── MOBILE: Floating Action Button (FAB) for Filters ── */}
+            <button
+                className="md:hidden fixed bottom-[90px] right-6 z-[60] bg-primary text-white p-4 rounded-full shadow-lg shadow-primary/30 active:scale-95 transition-transform"
+                onClick={() => setIsMobileFilterOpen(true)}
+            >
+                <div className="relative">
+                    <Funnel size={26} weight="fill" />
+                    {(filterLocation !== 'all' || filterTimeSlot !== 'all') && (
+                        <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent-orange opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-3 w-3 bg-accent-orange border-2 border-primary"></span>
+                        </span>
+                    )}
+                </div>
+            </button>
+
+            {/* ── MOBILE: Filter Modal ── */}
+            {isMobileFilterOpen && (
+                <div className="md:hidden fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-sm flex items-end justify-center p-4">
+                    <div className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl relative animate-in slide-in-from-bottom-8 duration-300">
+                        <button
+                            onClick={() => setIsMobileFilterOpen(false)}
+                            className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 bg-slate-100 rounded-full"
+                        >
+                            <X size={20} weight="bold" />
+                        </button>
+                        
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="p-2 rounded-xl bg-primary-light text-primary">
+                                <Funnel size={24} weight="fill" />
+                            </div>
+                            <h3 className="text-xl font-bold text-slate-800">Filter Calendar</h3>
+                        </div>
+
+                        <div className="flex flex-col gap-5">
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-2">Location</label>
+                                <select
+                                    className="w-full p-3.5 rounded-xl border border-slate-200 text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary bg-slate-50 font-medium"
+                                    value={pendingLocation}
+                                    onChange={e => setPendingLocation(e.target.value)}
+                                >
+                                    <option value="all">All Locations</option>
+                                    {[...new Set(availableRooms.map(r => r.location).filter(Boolean))].map(loc => (
+                                        <option key={loc} value={loc}>{loc}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-2">Time Slot</label>
+                                <select
+                                    className="w-full p-3.5 rounded-xl border border-slate-200 text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary bg-slate-50 font-medium"
+                                    value={pendingTimeSlot}
+                                    onChange={e => setPendingTimeSlot(e.target.value)}
+                                >
+                                    <option value="all">All Time Slots</option>
+                                    {ALL_SLOTS.map(s => (
+                                        <option key={s.start} value={s.start}>{s.label}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="flex gap-3 mt-2">
+                                <button
+                                    onClick={() => {
+                                        setPendingLocation('all');
+                                        setPendingTimeSlot('all');
+                                        setFilterLocation('all');
+                                        setFilterTimeSlot('all');
+                                        setIsMobileFilterOpen(false);
+                                    }}
+                                    className="flex-1 py-4 bg-slate-100 text-slate-600 font-bold rounded-xl active:scale-[0.98] transition-transform"
+                                >
+                                    Reset
+                                </button>
+                                <button 
+                                    onClick={() => {
+                                        setFilterLocation(pendingLocation);
+                                        setFilterTimeSlot(pendingTimeSlot);
+                                        setIsMobileFilterOpen(false);
+                                    }}
+                                    className="flex-[2] bg-primary hover:bg-primary-dark text-white font-bold py-4 rounded-xl shadow-lg shadow-primary/20 transition-transform active:scale-[0.98]"
+                                >
+                                    Apply Filters
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Book Now Banner */}
             {selectedDates.length > 0 && (
