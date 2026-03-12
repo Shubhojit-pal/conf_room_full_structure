@@ -32,7 +32,8 @@ import {
     Funnel,
     MagnifyingGlass,
     Users,
-    CaretDown
+    CaretDown,
+    X
 } from '@phosphor-icons/react';
 import React, { useState, useEffect } from 'react';
 import { fetchRooms, createBooking, getCurrentUser, Room as ApiRoom, fetchRoomAvailability, BookedSlot } from '../lib/api';
@@ -141,6 +142,9 @@ const SearchPage: React.FC<SearchPageProps> = ({ onViewRoom: _onViewRoom, onBook
     const [filteredRooms, setFilteredRooms] = useState<SearchRoom[]>([]);
     const [hasFiltered, setHasFiltered] = useState(false);
     const [selectedOffice, setSelectedOffice] = useState<string | null>(null);
+
+    // State for Mobile Filter Modal
+    const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
 
     // Fetch availability when room or date changes
     useEffect(() => {
@@ -752,81 +756,131 @@ const SearchPage: React.FC<SearchPageProps> = ({ onViewRoom: _onViewRoom, onBook
             </div>
 
             <div className="flex flex-col lg:flex-row gap-8">
-                {/* ── MOBILE: Compact Dropdown Filter Header ── */}
-                <div className="lg:hidden w-full bg-white rounded-xl border border-slate-200 p-3 shadow-sm mb-4">
-                    <div className="flex items-center gap-2 mb-3 text-slate-800 font-bold overflow-hidden">
-                        <Funnel size={18} className="text-primary shrink-0" />
-                        <span className="shrink-0">Quick Filters</span>
-                    </div>
-                    {/* Search inside mobile filter header */}
-                    <div className="relative mb-3">
-                        <MagnifyingGlass size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
-                        <input
-                            type="text"
-                            placeholder="Search location or name..."
-                            value={searchQuery}
-                            onChange={(e) => {
-                                setSearchQuery(e.target.value);
-                                applyFilters(undefined, undefined, undefined, undefined, e.target.value);
-                            }}
-                            className="w-full pl-9 pr-4 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                        />
-                    </div>
-                    {/* Horizontal scrollable dropdowns */}
-                    <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar items-center">
-                        <select
-                            className="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary min-w-max cursor-pointer font-medium"
-                            value={selectedRoomTypes[0] || ""}
-                            onChange={(e) => {
-                                const val = e.target.value ? [e.target.value] : [];
-                                setSelectedRoomTypes(val);
-                                applyFilters(val, undefined, undefined, undefined, undefined);
-                            }}
-                        >
-                            <option value="">Room Type (All)</option>
-                            {filters.roomType.map(t => <option key={t} value={t}>{t}</option>)}
-                        </select>
+                {/* ── MOBILE: Floating Action Button (FAB) for Filters ── */}
+                {!selectedOffice && ( // Only show on the main search view, not inside a specific room type view
+                    <button
+                        className="lg:hidden fixed bottom-[90px] right-6 z-[60] bg-primary text-white p-4 rounded-full shadow-lg shadow-primary/30 active:scale-95 transition-transform"
+                        onClick={() => setIsMobileFilterOpen(true)}
+                    >
+                        <Funnel size={26} weight="fill" />
+                    </button>
+                )}
 
-                        <select
-                            className="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary min-w-max cursor-pointer font-medium"
-                            value={selectedLocations[0] || ""}
-                            onChange={(e) => {
-                                const val = e.target.value ? [e.target.value] : [];
-                                setSelectedLocations(val);
-                                applyFilters(undefined, val, undefined, undefined, undefined);
-                            }}
-                        >
-                            <option value="">Location (All)</option>
-                            {filters.location.map(l => <option key={l} value={l}>{l}</option>)}
-                        </select>
+                {/* ── MOBILE: Filter Modal ── */}
+                {isMobileFilterOpen && (
+                    <div className="lg:hidden fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-sm flex items-end justify-center p-4">
+                        <div className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl relative animate-in slide-in-from-bottom-8 duration-300">
+                            <button
+                                onClick={() => setIsMobileFilterOpen(false)}
+                                className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 bg-slate-100 rounded-full"
+                            >
+                                <X size={20} weight="bold" />
+                            </button>
+                            
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="p-2 rounded-xl bg-primary-light text-primary">
+                                    <Funnel size={24} weight="fill" />
+                                </div>
+                                <h3 className="text-xl font-bold text-slate-800">Quick Filters</h3>
+                            </div>
 
-                        <select
-                            className="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary min-w-max cursor-pointer font-medium"
-                            value={selectedCapacity[0] || ""}
-                            onChange={(e) => {
-                                const val = e.target.value ? [e.target.value] : [];
-                                setSelectedCapacity(val);
-                                applyFilters(undefined, undefined, undefined, val, undefined);
-                            }}
-                        >
-                            <option value="">Capacity (All)</option>
-                            {filters.capacity.map(c => <option key={c} value={c}>{c}</option>)}
-                        </select>
+                            <div className="flex flex-col gap-5">
+                                {/* Search Bar */}
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-2">Search</label>
+                                    <div className="relative">
+                                        <MagnifyingGlass size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
+                                        <input
+                                            type="text"
+                                            placeholder="Location or name..."
+                                            value={searchQuery}
+                                            onChange={(e) => {
+                                                setSearchQuery(e.target.value);
+                                                applyFilters(undefined, undefined, undefined, undefined, e.target.value);
+                                            }}
+                                            className="w-full pl-10 pr-4 py-3.5 rounded-xl border border-slate-200 text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-slate-50 font-medium"
+                                        />
+                                    </div>
+                                </div>
 
-                        <select
-                            className="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary min-w-max cursor-pointer font-medium"
-                            value={selectedAmenities[0] || ""}
-                            onChange={(e) => {
-                                const val = e.target.value ? [e.target.value] : [];
-                                setSelectedAmenities(val);
-                                applyFilters(undefined, undefined, val, undefined, undefined);
-                            }}
-                        >
-                            <option value="">Amenities (All)</option>
-                            {filters.amenities.map(a => <option key={a} value={a}>{a.replace('-', ' ')}</option>)}
-                        </select>
+                                {/* Room Type */}
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-2">Room Type</label>
+                                    <select
+                                        className="w-full p-3.5 rounded-xl border border-slate-200 text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary bg-slate-50 font-medium"
+                                        value={selectedRoomTypes[0] || ""}
+                                        onChange={(e) => {
+                                            const val = e.target.value ? [e.target.value] : [];
+                                            setSelectedRoomTypes(val);
+                                            applyFilters(val, undefined, undefined, undefined, undefined);
+                                        }}
+                                    >
+                                        <option value="">All Room Types</option>
+                                        {filters.roomType.map(t => <option key={t} value={t}>{t}</option>)}
+                                    </select>
+                                </div>
+
+                                {/* Location */}
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-2">Location</label>
+                                    <select
+                                        className="w-full p-3.5 rounded-xl border border-slate-200 text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary bg-slate-50 font-medium"
+                                        value={selectedLocations[0] || ""}
+                                        onChange={(e) => {
+                                            const val = e.target.value ? [e.target.value] : [];
+                                            setSelectedLocations(val);
+                                            applyFilters(undefined, val, undefined, undefined, undefined);
+                                        }}
+                                    >
+                                        <option value="">All Locations</option>
+                                        {filters.location.map(l => <option key={l} value={l}>{l}</option>)}
+                                    </select>
+                                </div>
+
+                                {/* Capacity */}
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-2">Capacity</label>
+                                    <select
+                                        className="w-full p-3.5 rounded-xl border border-slate-200 text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary bg-slate-50 font-medium"
+                                        value={selectedCapacity[0] || ""}
+                                        onChange={(e) => {
+                                            const val = e.target.value ? [e.target.value] : [];
+                                            setSelectedCapacity(val);
+                                            applyFilters(undefined, undefined, undefined, val, undefined);
+                                        }}
+                                    >
+                                        <option value="">All Capacities</option>
+                                        {filters.capacity.map(c => <option key={c} value={c}>{c}</option>)}
+                                    </select>
+                                </div>
+
+                                {/* Amenities */}
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-2">Amenities</label>
+                                    <select
+                                        className="w-full p-3.5 rounded-xl border border-slate-200 text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary bg-slate-50 font-medium capitalize"
+                                        value={selectedAmenities[0] || ""}
+                                        onChange={(e) => {
+                                            const val = e.target.value ? [e.target.value] : [];
+                                            setSelectedAmenities(val);
+                                            applyFilters(undefined, undefined, val, undefined, undefined);
+                                        }}
+                                    >
+                                        <option value="">All Amenities</option>
+                                        {filters.amenities.map(a => <option key={a} value={a}>{a.replace('-', ' ')}</option>)}
+                                    </select>
+                                </div>
+
+                                <button 
+                                    onClick={() => setIsMobileFilterOpen(false)}
+                                    className="mt-2 w-full bg-primary hover:bg-primary-dark text-white font-bold py-4 rounded-xl shadow-lg shadow-primary/20 transition-transform active:scale-[0.98]"
+                                >
+                                    Show Results
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {/* ── DESKTOP: Filters Sidebar ── */}
                 <div className="hidden lg:block w-64 shrink-0 space-y-8">
