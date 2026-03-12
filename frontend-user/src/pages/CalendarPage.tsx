@@ -829,101 +829,89 @@ const CalendarPage: React.FC<CalendarPageProps> = () => {
                 {viewType === 'week' && (
                     <div className="week-view">
 
-                        {/* ── MOBILE: Vertical Agenda List ─────────────────── */}
-                        <div className="md:hidden space-y-4">
-                            {getWeekDays(currentDate).map((date) => {
-                                const dateStr = dateToString(date);
-                                const isToday = dateStr === dateToString(new Date());
-                                const isPast = isPastDate(dateStr);
-                                const dayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][date.getDay()];
-                                
-                                // Get unique bookings for the day (to avoid dupes if they span multiple slots)
-                                const rawBookings = getBookingsForDate(dateStr);
-                                const uniqueBookingsMap = new Map();
-                                rawBookings.forEach(b => uniqueBookingsMap.set(b.id || b.room + b.timeSlot, b));
-                                const dayBookings = Array.from(uniqueBookingsMap.values());
-
-                                return (
-                                    <div
-                                        key={dateStr}
-                                        className={`rounded-2xl border-2 overflow-hidden bg-white ${isToday ? 'border-primary shadow-md shadow-primary/10' : isPast ? 'border-slate-100 opacity-75' : 'border-slate-200 shadow-sm'}`}
-                                    >
-                                        {/* Day header */}
-                                        <div className={`px-4 py-3 flex items-center justify-between ${isToday ? 'bg-primary text-white' : isPast ? 'bg-slate-50' : 'bg-slate-50 border-b border-slate-100'}`}>
-                                            <div>
-                                                <span className={`text-[10px] font-bold uppercase tracking-widest ${isToday ? 'text-white/80' : 'text-slate-500'}`}>{dayName}</span>
-                                                <p className={`text-lg font-black leading-none mt-0.5 ${isToday ? 'text-white' : isPast ? 'text-slate-400' : 'text-slate-800'}`}>
-                                                    {monthNames[date.getMonth()].substring(0,3)} {date.getDate()}
-                                                </p>
-                                            </div>
-                                            {isToday && <span className="bg-white/20 text-white text-[9px] font-bold px-2 py-1 rounded-full uppercase tracking-wider">Today</span>}
+                        {/* ── MOBILE: Compact Weekly Grid ─────────────────── */}
+                        <div className="md:hidden bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-[65vh] min-h-[400px]">
+                            {/* Header: Days */}
+                            <div className="flex border-b border-slate-200 bg-slate-50 shrink-0 shadow-sm z-10">
+                                <div className="w-10 shrink-0 border-r border-slate-100 flex items-center justify-center bg-white">
+                                    <CalendarBlank size={16} className="text-slate-300" weight="fill" />
+                                </div>
+                                {getWeekDays(currentDate).map((date) => {
+                                    const dateStr = dateToString(date);
+                                    const isToday = dateStr === dateToString(new Date());
+                                    const dayName = ['S','M','T','W','T','F','S'][date.getDay()];
+                                    return (
+                                        <div key={dateStr} className={`flex-1 flex flex-col items-center justify-center py-2 border-r border-slate-100 last:border-0 ${isToday ? 'bg-primary/5' : ''}`}>
+                                            <span className={`text-[9px] font-bold uppercase ${isToday ? 'text-primary' : 'text-slate-400'}`}>{dayName}</span>
+                                            <span className={`text-xs font-black mt-0.5 flex items-center justify-center w-5 h-5 rounded-full ${isToday ? 'bg-primary text-white shadow-sm shadow-primary/30' : 'text-slate-700'}`}>
+                                                {date.getDate()}
+                                            </span>
                                         </div>
+                                    );
+                                })}
+                            </div>
 
-                                        {/* Bookings List */}
-                                        <div className="p-3 pb-4">
-                                            {dayBookings.length > 0 ? (
-                                                <div className="space-y-2">
-                                                    {dayBookings.map((booking, idx) => (
-                                                        <button
-                                                            key={idx}
-                                                            className={`w-full flex items-center gap-3 text-left rounded-[1rem] p-3 border transition-transform active:scale-[0.98] ${booking.status === 'booked'
-                                                                ? 'bg-emerald-50/50 border-emerald-100 hover:border-emerald-200'
-                                                                : 'bg-amber-50/50 border-amber-100 hover:border-amber-200'
-                                                            }`}
-                                                            onClick={() => {
+                            {/* Body: Time slots grid */}
+                            <div className="flex-1 overflow-y-auto overscroll-contain pb-4">
+                                {ALL_SLOTS.map((slot, slotIdx) => (
+                                    <div key={slotIdx} className="flex border-b border-slate-100 min-h-[48px]">
+                                        {/* Time Label */}
+                                        <div className="w-10 shrink-0 border-r border-slate-100 bg-slate-50/50 flex flex-col items-center pt-1.5">
+                                            <span className="text-[9px] font-bold text-slate-400 tracking-tighter">{slot.start.slice(0,5)}</span>
+                                        </div>
+                                        {/* 7 Days Columns */}
+                                        {getWeekDays(currentDate).map((date) => {
+                                            const dateStr = dateToString(date);
+                                            const isToday = dateStr === dateToString(new Date());
+                                            const isPastHour = isPastDateTime(dateStr, slot.startH);
+                                            
+                                            const cellBookings = getBookingsForDate(dateStr).filter(b => {
+                                                const ts = b.timeSlot || '';
+                                                const parts = ts.split(' - ');
+                                                if (parts.length < 2) return false;
+                                                const bStartH = parseInt(parts[0].split(':')[0]);
+                                                const bEndH = parseInt(parts[1].split(':')[0]);
+                                                return slot.startH >= bStartH && slot.startH < bEndH;
+                                            });
+                                            const hasBooking = cellBookings.length > 0;
+
+                                            return (
+                                                <div 
+                                                    key={`${dateStr}-${slotIdx}`}
+                                                    className={`flex-1 border-r border-slate-100 last:border-0 relative p-[1.5px] transition-colors
+                                                        ${isToday ? 'bg-primary/[0.02]' : ''}
+                                                        ${isPastHour ? 'bg-slate-50/80' : !hasBooking ? 'active:bg-primary/10 cursor-pointer' : ''}
+                                                    `}
+                                                    onClick={() => {
+                                                        if (isPastHour || hasBooking) return;
+                                                        setDateSlots({ [dateStr]: [slotIdx] });
+                                                        setActiveDate(dateStr);
+                                                        setSelectedDates([dateStr]);
+                                                        setIsModalOpen(true);
+                                                    }}
+                                                >
+                                                    {hasBooking && cellBookings.map((b, i) => (
+                                                        <div 
+                                                            key={b.id + i}
+                                                            className={`absolute inset-[1.5px] rounded-[4px] border shadow-sm flex items-center justify-center p-0.5 overflow-hidden 
+                                                                ${b.status === 'booked' ? 'bg-emerald-100 border-emerald-300' : 'bg-amber-100 border-amber-300'}`}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
                                                                 setDetailDate(dateStr);
                                                                 setIsDetailOpen(true);
                                                             }}
                                                         >
-                                                            <div className={`w-1.5 h-10 rounded-full ${booking.status === 'booked' ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-                                                            <div className="flex-1 min-w-0">
-                                                                <p className={`text-sm font-bold truncate ${booking.status === 'booked' ? 'text-emerald-900' : 'text-amber-900'}`}>
-                                                                    {booking.room}
-                                                                </p>
-                                                                <p className={`text-[11px] font-semibold mt-0.5 ${booking.status === 'booked' ? 'text-emerald-600/80' : 'text-amber-600/80'}`}>
-                                                                    {booking.timeSlot}
-                                                                </p>
+                                                            <div className={`text-[7px] font-bold leading-tight text-center truncate w-full ${b.status === 'booked' ? 'text-emerald-800' : 'text-amber-800'}`}>
+                                                                {b.room.split(' ')[0]} {/* Show first word to fit better */}
                                                             </div>
-                                                        </button>
+                                                        </div>
                                                     ))}
-                                                    
-                                                    {!isPast && (
-                                                        <button
-                                                            onClick={() => {
-                                                                setActiveDate(dateStr);
-                                                                setSelectedDates([dateStr]);
-                                                                setIsModalOpen(true);
-                                                            }}
-                                                            className="w-full mt-3 py-2.5 rounded-xl border border-dashed border-primary/30 text-primary hover:bg-primary/5 text-xs font-bold transition-colors"
-                                                        >
-                                                            + Add another booking
-                                                        </button>
-                                                    )}
                                                 </div>
-                                            ) : (
-                                                <div className="py-5 text-center px-4">
-                                                    <div className="w-10 h-10 rounded-full bg-slate-50 mx-auto mb-2 flex items-center justify-center text-slate-300">
-                                                        <CalendarBlank size={20} weight="fill" />
-                                                    </div>
-                                                    <p className="text-sm text-slate-400 font-medium mb-4">No bookings on this day.</p>
-                                                    {!isPast && (
-                                                        <button
-                                                            onClick={() => {
-                                                                setActiveDate(dateStr);
-                                                                setSelectedDates([dateStr]);
-                                                                setIsModalOpen(true);
-                                                            }}
-                                                            className="text-xs font-bold bg-primary/10 hover:bg-primary/20 transition-colors text-primary px-5 py-2.5 rounded-[1rem]"
-                                                        >
-                                                            Reserve a Room
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
+                                            );
+                                        })}
                                     </div>
-                                );
-                            })}
+                                ))}
+                            </div>
                         </div>
 
                         {/* ── DESKTOP: Time grid layout ───────────────────── */}
