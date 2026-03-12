@@ -131,7 +131,22 @@ router.post('/register', validate(registerSchema), async (req, res) => {
         }
 
         // Send OTP email
-        await sendOtpEmail(email, otp, 'registration');
+        const emailResult = await sendOtpEmail(email, otp, 'registration');
+        
+        if (!emailResult || !emailResult.success) {
+            // Rollback the DB changes if the email fails to send
+            if (existing) {
+                existing.otp = undefined;
+                existing.otpExpires = undefined;
+                await existing.save();
+            } else {
+                await User.deleteOne({ email });
+            }
+            return res.status(500).json({ 
+                error: 'Failed to send OTP email. Please check server email configuration.',
+                details: emailResult?.error || 'Unknown error'
+            });
+        }
 
         res.status(201).json({ 
             message: 'OTP sent successfully. Please verify your account.', 
@@ -344,7 +359,17 @@ router.post('/forgot-password', validate(forgotPasswordSchema), async (req, res)
         await user.save();
 
         // Send OTP email
-        await sendOtpEmail(email, otp, 'reset');
+        const emailResult = await sendOtpEmail(email, otp, 'reset');
+
+        if (!emailResult || !emailResult.success) {
+            user.otp = undefined;
+            user.otpExpires = undefined;
+            await user.save();
+            return res.status(500).json({ 
+                error: 'Failed to send reset email. Please check server email configuration.',
+                details: emailResult?.error || 'Unknown error'
+            });
+        }
 
         res.json({ 
             message: 'Password reset OTP sent successfully.',
@@ -405,7 +430,15 @@ router.post('/resend-otp', async (req, res) => {
         user.otpExpires = Date.now() + 600000;
         await user.save();
 
-        await sendOtpEmail(email, otp, user.isVerified ? 'reset' : 'registration');
+        const emailResult = await sendOtpEmail(email, otp, user.isVerified ? 'reset' : 'registration');
+        
+        if (!emailResult || !emailResult.success) {
+            return res.status(500).json({ 
+                error: 'Failed to resend OTP email.',
+                details: emailResult?.error || 'Unknown error'
+            });
+        }
+        
         res.json({ message: 'OTP resent successfully.' });
     } catch (error) {
         res.status(500).json({ error: 'Internal Server Error' });

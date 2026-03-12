@@ -76,12 +76,12 @@ const sendOtpEmail = async (toEmail, otp, type = 'registration') => {
         const info = await currentTransporter.sendMail(mailOptions);
         console.log(`[MAIL] Success! MessageID: ${info.messageId}`);
         console.log(`[MAIL] Response: ${info.response}`);
-        return true;
+        return { success: true };
     } catch (error) {
         console.error('[MAIL] CRITICAL ERROR during sendMail:', error);
         console.error('[MAIL] Error code:', error.code);
         console.error('[MAIL] SMTP Response:', error.response);
-        return false;
+        return { success: false, error: error.message || 'Unknown SMTP error' };
     }
 };
 
