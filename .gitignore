@@ -45,3 +45,11 @@ backend/seed.js
 # ─── Vite cache ──────────────────────────────────────────
 .vite/
 **/.vite/
+
+# ─── Docker ──────────────────────────────────────────────
+# Ignore local docker-override files (but not the main compose)
+docker-compose.override.yml
+docker-compose.local.yml
+
+# ─── Vercel ──────────────────────────────────────────────
+.vercel

@@ -1,0 +1,22 @@
+{
+  "version": 2,
+  "name": "conference-room-booking-system",
+  "buildCommand": "",
+  "outputDirectory": "",
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://your-backend-url.vercel.app/api/:path*"
+    }
+  ],
+  "projects": [
+    {
+      "name": "crbs-admin",
+      "root": "frontend-admin"
+    },
+    {
+      "name": "crbs-user",
+      "root": "frontend-user"
+    }
+  ]
+}
