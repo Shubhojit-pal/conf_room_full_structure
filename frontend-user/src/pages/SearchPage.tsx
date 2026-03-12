@@ -284,18 +284,26 @@ const SearchPage: React.FC<SearchPageProps> = ({ onViewRoom: _onViewRoom, onBook
     };
 
     /**
-     * Applies all active filter criteria (`selectedRoomTypes`, `selectedLocations`,
-     * `selectedAmenities`, `selectedCapacity`, and `searchQuery`) to the full
-     * rooms list and updates `filteredRooms` with the results.
-     *
-     * Called when the user clicks the "Apply Filters" button.
+     * Applies all active filter criteria to the full rooms list.
      */
-    const applyFilters = () => {
+    const applyFilters = (
+        overrideTypes?: string[],
+        overrideLocations?: string[],
+        overrideAmenities?: string[],
+        overrideCapacity?: string[],
+        overrideQuery?: string
+    ) => {
         let results = rooms;
 
+        const typesToUse = overrideTypes ?? selectedRoomTypes;
+        const locationsToUse = overrideLocations ?? selectedLocations;
+        const amenitiesToUse = overrideAmenities ?? selectedAmenities;
+        const capacityToUse = overrideCapacity ?? selectedCapacity;
+        const queryToUse = overrideQuery ?? searchQuery;
+
         // Search filter (location and name)
-        if (searchQuery.trim()) {
-            const query = searchQuery.toLowerCase();
+        if (queryToUse.trim()) {
+            const query = queryToUse.toLowerCase();
             results = results.filter(room =>
                 room.name.toLowerCase().includes(query) ||
                 room.location.toLowerCase().includes(query)
@@ -303,19 +311,19 @@ const SearchPage: React.FC<SearchPageProps> = ({ onViewRoom: _onViewRoom, onBook
         }
 
         // Room Type filter
-        if (selectedRoomTypes.length > 0) {
-            results = results.filter(room => selectedRoomTypes.includes(room.type));
+        if (typesToUse.length > 0) {
+            results = results.filter(room => typesToUse.includes(room.type));
         }
 
         // Location filter
-        if (selectedLocations.length > 0) {
-            results = results.filter(room => selectedLocations.includes(room.location));
+        if (locationsToUse.length > 0) {
+            results = results.filter(room => locationsToUse.includes(room.location));
         }
 
         // Amenities filter
-        if (selectedAmenities.length > 0) {
+        if (amenitiesToUse.length > 0) {
             results = results.filter(room =>
-                selectedAmenities.every(amenity => {
+                amenitiesToUse.every(amenity => {
                     const normalizedAmenity = amenity.toLowerCase().replace(/-/g, ' ');
                     return room.amenities.some(roomAmenity => 
                         roomAmenity.toLowerCase().replace(/-/g, ' ') === normalizedAmenity ||
@@ -326,10 +334,10 @@ const SearchPage: React.FC<SearchPageProps> = ({ onViewRoom: _onViewRoom, onBook
         }
 
         // Capacity filter
-        if (selectedCapacity.length > 0) {
+        if (capacityToUse.length > 0) {
             results = results.filter(room => {
                 const roomCapacityRange = getCapacityRange(room.capacity);
-                return selectedCapacity.includes(roomCapacityRange);
+                return capacityToUse.includes(roomCapacityRange);
             });
         }
 
@@ -744,8 +752,84 @@ const SearchPage: React.FC<SearchPageProps> = ({ onViewRoom: _onViewRoom, onBook
             </div>
 
             <div className="flex flex-col lg:flex-row gap-8">
-                {/* Filters Sidebar */}
-                <div className="w-full lg:w-64 shrink-0 space-y-8">
+                {/* ── MOBILE: Compact Dropdown Filter Header ── */}
+                <div className="lg:hidden w-full bg-white rounded-xl border border-slate-200 p-3 shadow-sm mb-4">
+                    <div className="flex items-center gap-2 mb-3 text-slate-800 font-bold overflow-hidden">
+                        <Funnel size={18} className="text-primary shrink-0" />
+                        <span className="shrink-0">Quick Filters</span>
+                    </div>
+                    {/* Search inside mobile filter header */}
+                    <div className="relative mb-3">
+                        <MagnifyingGlass size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
+                        <input
+                            type="text"
+                            placeholder="Search location or name..."
+                            value={searchQuery}
+                            onChange={(e) => {
+                                setSearchQuery(e.target.value);
+                                applyFilters(undefined, undefined, undefined, undefined, e.target.value);
+                            }}
+                            className="w-full pl-9 pr-4 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                    </div>
+                    {/* Horizontal scrollable dropdowns */}
+                    <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar items-center">
+                        <select
+                            className="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary min-w-max cursor-pointer font-medium"
+                            value={selectedRoomTypes[0] || ""}
+                            onChange={(e) => {
+                                const val = e.target.value ? [e.target.value] : [];
+                                setSelectedRoomTypes(val);
+                                applyFilters(val, undefined, undefined, undefined, undefined);
+                            }}
+                        >
+                            <option value="">Room Type (All)</option>
+                            {filters.roomType.map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+
+                        <select
+                            className="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary min-w-max cursor-pointer font-medium"
+                            value={selectedLocations[0] || ""}
+                            onChange={(e) => {
+                                const val = e.target.value ? [e.target.value] : [];
+                                setSelectedLocations(val);
+                                applyFilters(undefined, val, undefined, undefined, undefined);
+                            }}
+                        >
+                            <option value="">Location (All)</option>
+                            {filters.location.map(l => <option key={l} value={l}>{l}</option>)}
+                        </select>
+
+                        <select
+                            className="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary min-w-max cursor-pointer font-medium"
+                            value={selectedCapacity[0] || ""}
+                            onChange={(e) => {
+                                const val = e.target.value ? [e.target.value] : [];
+                                setSelectedCapacity(val);
+                                applyFilters(undefined, undefined, undefined, val, undefined);
+                            }}
+                        >
+                            <option value="">Capacity (All)</option>
+                            {filters.capacity.map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+
+                        <select
+                            className="bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary min-w-max cursor-pointer font-medium"
+                            value={selectedAmenities[0] || ""}
+                            onChange={(e) => {
+                                const val = e.target.value ? [e.target.value] : [];
+                                setSelectedAmenities(val);
+                                applyFilters(undefined, undefined, val, undefined, undefined);
+                            }}
+                        >
+                            <option value="">Amenities (All)</option>
+                            {filters.amenities.map(a => <option key={a} value={a}>{a.replace('-', ' ')}</option>)}
+                        </select>
+                    </div>
+                </div>
+
+                {/* ── DESKTOP: Filters Sidebar ── */}
+                <div className="hidden lg:block w-64 shrink-0 space-y-8">
                     <div className="flex items-center gap-2 mb-4">
                         <Funnel size={20} className="text-slate-800" />
                         <h2 className="font-bold text-lg text-slate-800">Filters</h2>
@@ -838,7 +922,7 @@ const SearchPage: React.FC<SearchPageProps> = ({ onViewRoom: _onViewRoom, onBook
                     {/* Apply Filters Button */}
                     <div className="pt-4 border-t border-slate-200">
                         <button
-                            onClick={applyFilters}
+                            onClick={() => applyFilters()}
                             className="w-full bg-primary hover:bg-primary-dark text-white font-semibold py-2 px-4 rounded-lg transition-colors"
                         >
                             Apply Filters
@@ -848,15 +932,18 @@ const SearchPage: React.FC<SearchPageProps> = ({ onViewRoom: _onViewRoom, onBook
 
                 {/* Main Content */}
                 <div className="flex-1">
-                    {/* Search Bar */}
-                    <div className="mb-6">
+                    {/* Desktop Search Bar */}
+                    <div className="hidden lg:block mb-6">
                         <div className="relative">
                             <MagnifyingGlass size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
                             <input
                                 type="text"
                                 placeholder="Search by location or office name..."
                                 value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
+                                onChange={(e) => {
+                                    setSearchQuery(e.target.value);
+                                    applyFilters(undefined, undefined, undefined, undefined, e.target.value);
+                                }}
                                 className="w-full pl-10 pr-4 py-3 rounded-lg border border-slate-200 text-slate-800 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                             />
                         </div>
