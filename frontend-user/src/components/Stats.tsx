@@ -42,19 +42,21 @@ const Stats: React.FC<StatsProps> = ({ onNavigate }) => {
 
     return (
         <section className="relative z-20 -mt-12 px-6">
-            <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="max-w-7xl mx-auto grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
                 {stats.map((stat, index) => (
                     <button 
                         key={index} 
                         onClick={() => stat.route && onNavigate && onNavigate(stat.route)}
-                        className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex flex-col items-start gap-4 hover:shadow-md hover:border-slate-300 transition-all text-left w-full group focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                        className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-200 flex flex-col items-start gap-3 sm:gap-4 hover:shadow-md hover:border-slate-300 transition-all text-left w-full group focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                     >
-                        <div className={`p-3 rounded-lg ${stat.bg} ${stat.color} group-hover:scale-110 transition-transform`}>
-                            {stat.icon}
+                        <div className={`p-2 sm:p-3 rounded-lg ${stat.bg} ${stat.color} group-hover:scale-110 transition-transform`}>
+                            <div className="scale-75 sm:scale-100 origin-top-left flex items-center justify-center">
+                                {stat.icon}
+                            </div>
                         </div>
                         <div>
-                            <h3 className="text-3xl font-bold text-slate-800">{stat.value}</h3>
-                            <p className="text-sm font-medium text-slate-500">{stat.label}</p>
+                            <h3 className="text-2xl sm:text-3xl font-bold text-slate-800">{stat.value}</h3>
+                            <p className="text-xs sm:text-sm font-medium text-slate-500 leading-tight">{stat.label}</p>
                         </div>
                     </button>
                 ))}
