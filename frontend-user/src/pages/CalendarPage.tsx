@@ -733,114 +733,204 @@ const CalendarPage: React.FC<CalendarPageProps> = () => {
 
                 {/* WEEK VIEW */}
                 {viewType === 'week' && (
-                    <div className="week-view overflow-x-auto">
-                        <div className="min-w-[700px]">
-                            {/* Day / Date Header row */}
-                            <div className="flex">
-                                {/* Time gutter */}
-                                <div className="w-20 shrink-0" />
-                                {getWeekDays(currentDate).map((date) => {
-                                    const dayName = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()];
-                                    const isToday = dateToString(date) === dateToString(new Date());
-                                    const isPast = isPastDate(dateToString(date));
-                                    return (
-                                        <div
-                                            key={dateToString(date)}
-                                            className={`flex-1 text-center py-3 px-1 border-b-2 ${isToday
-                                                ? 'border-primary bg-primary/5'
-                                                : isPast
-                                                    ? 'border-slate-200 bg-slate-50/50'
-                                                    : 'border-slate-200'
-                                                }`}
-                                        >
-                                            <p className={`text-[10px] font-bold uppercase tracking-widest ${isToday ? 'text-primary' : 'text-slate-400'}`}>{dayName}</p>
-                                            <p className={`text-xl font-black mt-0.5 ${isToday
-                                                ? 'bg-primary text-white w-9 h-9 rounded-full flex items-center justify-center mx-auto'
-                                                : isPast ? 'text-slate-300' : 'text-slate-800'
-                                                }`}>{date.getDate()}</p>
-                                        </div>
-                                    );
-                                })}
-                            </div>
+                    <div className="week-view">
 
-                            {/* Time rows */}
-                            {ALL_SLOTS.map((slot, slotIdx) => {
+                        {/* ── MOBILE: Vertical day cards ─────────────────── */}
+                        <div className="md:hidden space-y-3">
+                            {getWeekDays(currentDate).map((date) => {
+                                const dateStr = dateToString(date);
+                                const isToday = dateStr === dateToString(new Date());
+                                const isPast = isPastDate(dateStr);
+                                const dayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][date.getDay()];
+                                const dayBookings = getBookingsForDate(dateStr);
+
                                 return (
-                                    <div key={slotIdx} className="flex border-t border-slate-100 group/row hover:bg-slate-50/50 transition-colors">
-                                        {/* Time label */}
-                                        <div className="w-20 shrink-0 pt-2 pr-3 text-right">
-                                            <span className="text-[11px] font-semibold text-slate-400">{slot.label}</span>
+                                    <div
+                                        key={dateStr}
+                                        className={`rounded-xl border-2 overflow-hidden ${isToday ? 'border-primary' : isPast ? 'border-slate-200' : 'border-slate-200'}`}
+                                    >
+                                        {/* Day header */}
+                                        <div className={`px-4 py-3 flex items-center justify-between ${isToday ? 'bg-primary text-white' : isPast ? 'bg-slate-50' : 'bg-slate-50'}`}>
+                                            <div>
+                                                <span className={`text-xs font-bold uppercase tracking-widest ${isToday ? 'text-white/80' : 'text-slate-400'}`}>{dayName}</span>
+                                                <p className={`text-xl font-black leading-none mt-0.5 ${isToday ? 'text-white' : isPast ? 'text-slate-400' : 'text-slate-800'}`}>
+                                                    {monthNames[date.getMonth()].slice(0,3)} {date.getDate()}
+                                                </p>
+                                            </div>
+                                            {isToday && <span className="bg-white/20 text-white text-[10px] font-bold px-2 py-1 rounded-full">Today</span>}
+                                            {isPast && !isToday && <span className="text-slate-400 text-[10px] font-semibold">Past</span>}
                                         </div>
 
-                                        {/* Day cells */}
-                                        {getWeekDays(currentDate).map((date) => {
-                                            const dateStr = dateToString(date);
-                                            const isPastHour = isPastDateTime(dateStr, slot.startH);
-                                            const isToday = dateToString(date) === dateToString(new Date());
+                                        {/* Slots/Bookings */}
+                                        <div className="p-3 space-y-2">
+                                            {ALL_SLOTS.map((slot, idx) => {
+                                                const isPastHour = isPastDateTime(dateStr, slot.startH);
+                                                const slotBookings = dayBookings.filter(b => {
+                                                    if (b.selectedSlots) {
+                                                        return b.selectedSlots.split(',').some(s => s.startsWith(slot.start));
+                                                    }
+                                                    const ts = b.timeSlot || '';
+                                                    const parts = ts.split(' - ');
+                                                    if (parts.length < 2) return false;
+                                                    const bStartH = parseInt(parts[0].split(':')[0]);
+                                                    const bEndH = parseInt(parts[1].split(':')[0]);
+                                                    return slot.startH >= bStartH && slot.startH < bEndH;
+                                                });
+                                                const hasBooking = slotBookings.length > 0;
+                                                const booking = slotBookings[0];
 
-                                            // Find all bookings that cover this hour
-                                            const cellBookings = getBookingsForDate(dateStr).filter(b => {
-                                                const ts = b.timeSlot || '';
-                                                const parts = ts.split(' - ');
-                                                if (parts.length < 2) return false;
-                                                const bStartH = parseInt(parts[0].split(':')[0]);
-                                                const bEndH = parseInt(parts[1].split(':')[0]);
-                                                return slot.startH >= bStartH && slot.startH < bEndH;
-                                            });
-                                            const hasBooking = cellBookings.length > 0;
-                                            const booking = cellBookings[0];
-
-                                            return (
-                                                <div
-                                                    key={`${dateStr}-${slotIdx}`}
-                                                    className={`flex-1 min-h-[52px] relative border-l border-slate-100 p-1 transition-colors
-                                                        ${isToday ? 'bg-primary/3' : ''}
-                                                        ${isPastHour ? 'bg-slate-50 opacity-60' : !hasBooking ? 'cursor-pointer hover:bg-primary/5' : ''}
-                                                    `}
-                                                    onClick={() => {
-                                                        if (isPastHour || hasBooking) return;
-                                                        setDateSlots({ [dateStr]: [slotIdx] });
-                                                        setActiveDate(dateStr);
-                                                        setIsModalOpen(true);
-                                                        setSelectedDates([dateStr]);
-                                                    }}
-                                                >
-                                                    {hasBooking && booking && (
-                                                        <div
-                                                            className={`h-full min-h-[44px] rounded-lg px-2 py-1.5 border-l-4 cursor-pointer group/event
-                                                                ${booking.status === 'booked'
-                                                                    ? 'bg-green-50 border-green-500 hover:bg-green-100'
-                                                                    : 'bg-yellow-50 border-yellow-500 hover:bg-yellow-100'
+                                                return (
+                                                    <div key={idx} className={`flex items-start gap-2.5 ${isPastHour ? 'opacity-40' : ''}`}>
+                                                        {/* Time label */}
+                                                        <span className="text-[11px] font-semibold text-slate-400 w-12 shrink-0 pt-1.5">
+                                                            {String(slot.startH).padStart(2,'0')}:00
+                                                        </span>
+                                                        {/* Booking chip or empty slot */}
+                                                        {hasBooking && booking ? (
+                                                            <button
+                                                                className={`flex-1 text-left rounded-lg px-2.5 py-2 border-l-4 ${booking.status === 'booked'
+                                                                    ? 'bg-green-50 border-green-500'
+                                                                    : 'bg-yellow-50 border-yellow-500'
                                                                 }`}
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setDetailDate(dateStr);
-                                                                setIsDetailOpen(true);
-                                                            }}
-                                                        >
-                                                            <p className={`text-[10px] font-black truncate ${booking.status === 'booked' ? 'text-green-700' : 'text-yellow-700'}`}>
-                                                                {booking.room}
-                                                            </p>
-                                                            {booking.purpose && (
-                                                                <p className="text-[9px] text-slate-500 truncate mt-0.5">{booking.purpose}</p>
-                                                            )}
-                                                            <p className="text-[9px] text-slate-400 truncate mt-0.5">👤 {booking.bookedBy}</p>
-                                                        </div>
-                                                    )}
-                                                    {!hasBooking && !isPastHour && (
-                                                        <div className="opacity-0 group-hover/event:opacity-0 group/row:hover:opacity-100 h-full flex items-center justify-center">
-                                                            <span className="text-[10px] text-primary/50 font-semibold">+ Book</span>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
+                                                                onClick={() => {
+                                                                    setDetailDate(dateStr);
+                                                                    setIsDetailOpen(true);
+                                                                }}
+                                                            >
+                                                                <p className={`text-xs font-bold truncate ${booking.status === 'booked' ? 'text-green-700' : 'text-yellow-700'}`}>
+                                                                    {booking.room}
+                                                                </p>
+                                                                {booking.purpose && (
+                                                                    <p className="text-[10px] text-slate-500 truncate">{booking.purpose}</p>
+                                                                )}
+                                                                <p className="text-[10px] text-slate-400">👤 {booking.bookedBy}</p>
+                                                            </button>
+                                                        ) : (
+                                                            <button
+                                                                disabled={isPastHour || isPast}
+                                                                onClick={() => {
+                                                                    if (isPastHour || isPast) return;
+                                                                    setDateSlots({ [dateStr]: [idx] });
+                                                                    setActiveDate(dateStr);
+                                                                    setSelectedDates([dateStr]);
+                                                                    setIsModalOpen(true);
+                                                                }}
+                                                                className={`flex-1 rounded-lg border border-dashed text-[10px] py-1.5 font-semibold transition-colors ${isPastHour || isPast
+                                                                    ? 'border-slate-200 text-slate-300 cursor-not-allowed'
+                                                                    : 'border-primary/30 text-primary/60 hover:bg-primary/5 hover:border-primary cursor-pointer'
+                                                                }`}
+                                                            >
+                                                                {isPastHour || isPast ? '—' : '+ Book this slot'}
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
                                 );
                             })}
                         </div>
+
+                        {/* ── DESKTOP: Time grid layout ───────────────────── */}
+                        <div className="hidden md:block overflow-x-auto">
+                            <div className="min-w-[700px]">
+                                {/* Day / Date Header row */}
+                                <div className="flex">
+                                    <div className="w-24 shrink-0" />
+                                    {getWeekDays(currentDate).map((date) => {
+                                        const dayName = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()];
+                                        const isToday = dateToString(date) === dateToString(new Date());
+                                        const isPast = isPastDate(dateToString(date));
+                                        return (
+                                            <div
+                                                key={dateToString(date)}
+                                                className={`flex-1 text-center py-3 px-1 border-b-2 ${isToday
+                                                    ? 'border-primary bg-primary/5'
+                                                    : isPast
+                                                        ? 'border-slate-200 bg-slate-50/50'
+                                                        : 'border-slate-200'
+                                                    }`}
+                                            >
+                                                <p className={`text-[10px] font-bold uppercase tracking-widest ${isToday ? 'text-primary' : 'text-slate-400'}`}>{dayName}</p>
+                                                <p className={`text-xl font-black mt-0.5 ${isToday
+                                                    ? 'bg-primary text-white w-9 h-9 rounded-full flex items-center justify-center mx-auto'
+                                                    : isPast ? 'text-slate-300' : 'text-slate-800'
+                                                    }`}>{date.getDate()}</p>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
+                                {/* Time rows */}
+                                {ALL_SLOTS.map((slot, slotIdx) => {
+                                    return (
+                                        <div key={slotIdx} className="flex border-t border-slate-100 group/row hover:bg-slate-50/50 transition-colors">
+                                            <div className="w-24 shrink-0 pt-2 pr-3 text-right">
+                                                <span className="text-[11px] font-semibold text-slate-400">{slot.label}</span>
+                                            </div>
+                                            {getWeekDays(currentDate).map((date) => {
+                                                const dateStr = dateToString(date);
+                                                const isPastHour = isPastDateTime(dateStr, slot.startH);
+                                                const isToday = dateToString(date) === dateToString(new Date());
+                                                const cellBookings = getBookingsForDate(dateStr).filter(b => {
+                                                    const ts = b.timeSlot || '';
+                                                    const parts = ts.split(' - ');
+                                                    if (parts.length < 2) return false;
+                                                    const bStartH = parseInt(parts[0].split(':')[0]);
+                                                    const bEndH = parseInt(parts[1].split(':')[0]);
+                                                    return slot.startH >= bStartH && slot.startH < bEndH;
+                                                });
+                                                const hasBooking = cellBookings.length > 0;
+                                                const booking = cellBookings[0];
+                                                return (
+                                                    <div
+                                                        key={`${dateStr}-${slotIdx}`}
+                                                        className={`flex-1 min-h-[52px] relative border-l border-slate-100 p-1 transition-colors
+                                                            ${isToday ? 'bg-primary/[0.03]' : ''}
+                                                            ${isPastHour ? 'bg-slate-50 opacity-60' : !hasBooking ? 'cursor-pointer hover:bg-primary/5' : ''}
+                                                        `}
+                                                        onClick={() => {
+                                                            if (isPastHour || hasBooking) return;
+                                                            setDateSlots({ [dateStr]: [slotIdx] });
+                                                            setActiveDate(dateStr);
+                                                            setIsModalOpen(true);
+                                                            setSelectedDates([dateStr]);
+                                                        }}
+                                                    >
+                                                        {hasBooking && booking && (
+                                                            <div
+                                                                className={`h-full min-h-[44px] rounded-lg px-2 py-1.5 border-l-4 cursor-pointer
+                                                                    ${booking.status === 'booked'
+                                                                        ? 'bg-green-50 border-green-500 hover:bg-green-100'
+                                                                        : 'bg-yellow-50 border-yellow-500 hover:bg-yellow-100'
+                                                                    }`}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setDetailDate(dateStr);
+                                                                    setIsDetailOpen(true);
+                                                                }}
+                                                            >
+                                                                <p className={`text-[10px] font-black truncate ${booking.status === 'booked' ? 'text-green-700' : 'text-yellow-700'}`}>
+                                                                    {booking.room}
+                                                                </p>
+                                                                {booking.purpose && (
+                                                                    <p className="text-[9px] text-slate-500 truncate mt-0.5">{booking.purpose}</p>
+                                                                )}
+                                                                <p className="text-[9px] text-slate-400 truncate mt-0.5">👤 {booking.bookedBy}</p>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
                     </div>
                 )}
+
 
                 {/* DAY VIEW */}
                 {viewType === 'day' && (() => {

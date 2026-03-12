@@ -220,7 +220,7 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ onBrowse, onViewTicket 
     );
 
     return (
-        <div className="max-w-[1400px] mx-auto px-6 py-12 relative">
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-6 sm:py-12 relative">
             {/* Toast Notifications */}
             <div className="fixed top-24 right-6 z-[100] space-y-3 pointer-events-none">
                 {notifications.map(n => (
@@ -239,17 +239,17 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ onBrowse, onViewTicket 
                 ))}
             </div>
 
-            <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
+            <div className="flex flex-col md:flex-row md:items-end justify-between mb-6 sm:mb-12 gap-4">
                 <div className="text-left">
-                    <h1 className="text-5xl font-black text-slate-900 tracking-tight mb-3">Booking Dashboard</h1>
-                    <p className="text-slate-500 text-lg flex items-center gap-2">
+                    <h1 className="text-3xl sm:text-5xl font-black text-slate-900 tracking-tight mb-2 sm:mb-3">Booking Dashboard</h1>
+                    <p className="text-slate-500 text-sm sm:text-lg flex items-center gap-2">
                         <Calendar size={20} className="text-primary" weight="bold" />
                         Manage your conference schedule and requests
                     </p>
                 </div>
 
-                {/* Global Search Bar */}
-                <div className="relative w-full md:w-96">
+                {/* Search Bar — desktop only */}
+                <div className="relative w-full md:w-96 hidden md:block">
                     <MagnifyingGlass size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
                         type="text"
@@ -261,7 +261,8 @@ const MyBookingsPage: React.FC<MyBookingsPageProps> = ({ onBrowse, onViewTicket 
                 </div>
             </div>
 
-            <div className="flex flex-col lg:grid lg:grid-cols-12 gap-12">
+            <div className="flex flex-col-reverse lg:grid lg:grid-cols-12 gap-8 lg:gap-12">
+
                 {/* Right Column: Bookings List */}
                 <div className="lg:col-span-7 flex flex-col min-h-[800px]">
                     <div className="bg-white rounded-full border border-slate-200 p-2 shadow-sm mb-8 flex gap-2 w-full lg:max-w-2xl">
