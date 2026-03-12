@@ -1,0 +1,26 @@
+# ─── Dependencies ────────────────────────────────────────
+node_modules/
+
+# ─── Environment Variables (NEVER commit secrets!) ───────
+.env
+.env.local
+.env.*.local
+
+# ─── Uploaded Files ───────────────────────────────────────
+uploads/
+
+# ─── OS / Editor ─────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*
+
+# ─── Diagnostic / Utility Scripts (not needed in prod) ───
+db-check.js
+api-format-check.js
+check-users.js
+final-verify.js
+fix-passwords.js
+load-db.js
+mongo-seed.js
+robust-fix.js
