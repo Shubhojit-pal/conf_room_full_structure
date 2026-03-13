@@ -116,13 +116,13 @@ router.post('/register', validate(registerSchema), async (req, res) => {
             await existing.save();
         } else {
             // Create new user document in MongoDB (unverified)
-            await User.create({ 
-                uid, 
-                userrole_id: role, 
-                name, 
-                email, 
-                password: hashedPassword, 
-                dept, 
+            await User.create({
+                uid,
+                userrole_id: role,
+                name,
+                email,
+                password: hashedPassword,
+                dept,
                 phone_no,
                 isVerified: false,
                 otp,
@@ -132,7 +132,7 @@ router.post('/register', validate(registerSchema), async (req, res) => {
 
         // Send OTP email
         const emailResult = await sendOtpEmail(email, otp, 'registration');
-        
+
         if (!emailResult || !emailResult.success) {
             // Rollback the DB changes if the email fails to send
             if (existing) {
@@ -142,20 +142,20 @@ router.post('/register', validate(registerSchema), async (req, res) => {
             } else {
                 await User.deleteOne({ email });
             }
-            return res.status(500).json({ 
+            return res.status(500).json({
                 error: 'Failed to send OTP email. Please check server email configuration.',
                 details: emailResult?.error || 'Unknown error'
             });
         }
 
-        res.status(201).json({ 
-            message: 'OTP sent successfully. Please verify your account.', 
+        res.status(201).json({
+            message: 'OTP sent successfully. Please verify your account.',
             uid,
             email
         });
     } catch (error) {
         console.error('Register error:', error);
-        
+
         // Handle MongoDB duplicate key errors (code 11000)
         if (error.code === 11000) {
             const field = Object.keys(error.keyPattern)[0];
@@ -167,7 +167,7 @@ router.post('/register', validate(registerSchema), async (req, res) => {
             }
             return res.status(409).json({ error: `${field} already registered.` });
         }
-        
+
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });
@@ -351,11 +351,11 @@ router.post('/forgot-password', validate(forgotPasswordSchema), async (req, res)
 
         // Generate 6-digit OTP
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        
+
         // Save OTP to DB
         user.otp = otp;
         user.otpExpires = Date.now() + 600000; // 10 minutes
-        
+
         await user.save();
 
         // Send OTP email
@@ -365,13 +365,13 @@ router.post('/forgot-password', validate(forgotPasswordSchema), async (req, res)
             user.otp = undefined;
             user.otpExpires = undefined;
             await user.save();
-            return res.status(500).json({ 
+            return res.status(500).json({
                 error: 'Failed to send reset email. Please check server email configuration.',
                 details: emailResult?.error || 'Unknown error'
             });
         }
 
-        res.json({ 
+        res.json({
             message: 'Password reset OTP sent successfully.',
             email
         });
@@ -390,10 +390,10 @@ router.post('/verify-otp', validate(verifyOtpSchema), async (req, res) => {
     const { email, otp } = req.body;
 
     try {
-        const user = await User.findOne({ 
-            email, 
-            otp, 
-            otpExpires: { $gt: Date.now() } 
+        const user = await User.findOne({
+            email,
+            otp,
+            otpExpires: { $gt: Date.now() }
         });
 
         if (!user) {
@@ -430,15 +430,7 @@ router.post('/resend-otp', async (req, res) => {
         user.otpExpires = Date.now() + 600000;
         await user.save();
 
-        const emailResult = await sendOtpEmail(email, otp, user.isVerified ? 'reset' : 'registration');
-        
-        if (!emailResult || !emailResult.success) {
-            return res.status(500).json({ 
-                error: 'Failed to resend OTP email.',
-                details: emailResult?.error || 'Unknown error'
-            });
-        }
-        
+        await sendOtpEmail(email, otp, user.isVerified ? 'reset' : 'registration');
         res.json({ message: 'OTP resent successfully.' });
     } catch (error) {
         res.status(500).json({ error: 'Internal Server Error' });
@@ -467,7 +459,7 @@ router.post('/reset-password', validate(resetPasswordSchema), async (req, res) =
         // OTP matches and is valid; update password
         const hashedPassword = await bcrypt.hash(newPassword, 10);
         user.password = hashedPassword;
-        
+
         // Clear OTP fields
         user.otp = undefined;
         user.otpExpires = undefined;

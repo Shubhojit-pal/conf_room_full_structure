@@ -16,7 +16,7 @@ import { getDirectImageUrl } from '../lib/imageUtils';
 
 interface QuickAccessProps {
     onViewAvailableToday?: () => void;
-    onSearch?: () => void;
+    onSearch?: (filters?: { location: string; capacity: string; date: string }) => void;
     onViewFavorites?: () => void;
     onViewActivity?: () => void;
 }
@@ -37,7 +37,7 @@ const QuickAccess: React.FC<QuickAccessProps> = ({ onViewAvailableToday, onSearc
 
     const handleFindRooms = (e: React.FormEvent) => {
         e.preventDefault();
-        onSearch?.();
+        onSearch?.({ location, capacity, date });
     };
 
     const handleAdvancedSearch = (e: React.MouseEvent) => {

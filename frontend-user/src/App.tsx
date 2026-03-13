@@ -104,10 +104,16 @@ function App() {
     const { isLoading } = useAuth();
     const [selectedRoom, setSelectedRoom] = useState<SelectedRoom | null>(null);
     const [lastBooking, setLastBooking] = useState<BookingResult | null>(null);
+    const [initialSearchFilters, setInitialSearchFilters] = useState<{ location: string; capacity: string; date: string } | undefined>();
 
     const [resetEmail, setResetEmail] = useState('');
 
-    const navigateTo = (view: string) => {
+    const navigateTo = (view: string, data?: any) => {
+        if (view === 'search' && data && data.location) {
+            setInitialSearchFilters(data);
+        } else if (view === 'search') {
+            setInitialSearchFilters(undefined);
+        }
         setCurrentView(view);
         window.scrollTo(0, 0);
     };
@@ -163,14 +169,14 @@ function App() {
                         <Analytics onNavigate={navigateTo} />
                         <QuickAccess
                             onViewAvailableToday={() => navigateTo('search')}
-                            onSearch={() => navigateTo('search')}
+                            onSearch={(filters) => navigateTo('search', filters)}
                             onViewFavorites={() => navigateTo('search')}
                             onViewActivity={() => navigateTo('my-bookings')}
                         />
                     </>
                 );
             case 'search':
-                return <SearchPage onViewRoom={navigateToRoom} onBookingSuccess={navigateToTicket} />;
+                return <SearchPage onViewRoom={navigateToRoom} onBookingSuccess={navigateToTicket} initialFilters={initialSearchFilters} />;
             case 'details':
                 return (
                     <RoomDetailsPage
@@ -199,7 +205,7 @@ function App() {
                         <Analytics onNavigate={navigateTo} />
                         <QuickAccess
                             onViewAvailableToday={() => navigateTo('search')}
-                            onSearch={() => navigateTo('search')}
+                            onSearch={(filters) => navigateTo('search', filters)}
                             onViewFavorites={() => navigateTo('search')}
                             onViewActivity={() => navigateTo('my-bookings')}
                         />

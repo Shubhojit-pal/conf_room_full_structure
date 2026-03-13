@@ -87,6 +87,8 @@ interface SearchPageProps {
     onViewRoom?: (catalog_id: string, room_id: string) => void;
     /** Callback invoked after a successful booking, navigating to the ticket page. */
     onBookingSuccess?: (booking: BookingResult) => void;
+    /** Optional initial filters populated from quick access */
+    initialFilters?: { location: string; capacity: string; date: string };
 }
 
 /**
@@ -108,7 +110,7 @@ interface Office {
  * @param {SearchPageProps} props - Component props.
  * @returns {JSX.Element} The rendered search and booking page.
  */
-const SearchPage: React.FC<SearchPageProps> = ({ onViewRoom: _onViewRoom, onBookingSuccess }) => {
+const SearchPage: React.FC<SearchPageProps> = ({ onViewRoom: _onViewRoom, onBookingSuccess, initialFilters }) => {
     const [selectedRoomType, setSelectedRoomType] = useState<SearchRoom | null>(null);
     const [rooms, setRooms] = useState<SearchRoom[]>([]);
     const [loading, setLoading] = useState(true);
@@ -117,7 +119,7 @@ const SearchPage: React.FC<SearchPageProps> = ({ onViewRoom: _onViewRoom, onBook
     // ─── Booking Form State ───────────────────────────────────────────────
     /** Today's date string (YYYY-MM-DD) used as the minimum allowed booking date. */
     const todayStr = new Date().toISOString().slice(0, 10);
-    const [bookDate, setBookDate] = useState(todayStr);
+    const [bookDate, setBookDate] = useState(initialFilters?.date || todayStr);
     /** Index of the first selected time slot in the ALL_SLOTS array. */
     const [startSlot, setStartSlot] = useState<number | null>(null);
     /** Index of the last selected time slot (for range selection). */
@@ -136,9 +138,13 @@ const SearchPage: React.FC<SearchPageProps> = ({ onViewRoom: _onViewRoom, onBook
     // ─── Filter & Search State ────────────────────────────────────────────
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedRoomTypes, setSelectedRoomTypes] = useState<string[]>([]);
-    const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
+    const [selectedLocations, setSelectedLocations] = useState<string[]>(
+        initialFilters?.location && initialFilters.location !== 'All Locations' ? [initialFilters.location] : []
+    );
     const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
-    const [selectedCapacity, setSelectedCapacity] = useState<string[]>([]);
+    const [selectedCapacity, setSelectedCapacity] = useState<string[]>(
+        initialFilters?.capacity && initialFilters.capacity !== 'Any Capacity' ? [initialFilters.capacity] : []
+    );
     const [filteredRooms, setFilteredRooms] = useState<SearchRoom[]>([]);
     const [hasFiltered, setHasFiltered] = useState(false);
     const [selectedOffice, setSelectedOffice] = useState<string | null>(null);
@@ -254,6 +260,19 @@ const SearchPage: React.FC<SearchPageProps> = ({ onViewRoom: _onViewRoom, onBook
                     amenities: r.amenities ? r.amenities.split(',').map(a => a.trim()) : [],
                     type: r.room_type || 'Conference Room'
                 }));
+                
+                if (initialFilters && (initialFilters.location !== 'All Locations' || initialFilters.capacity !== 'Any Capacity')) {
+                    let results = mappedRooms;
+                    if (initialFilters.location && initialFilters.location !== 'All Locations') {
+                        results = results.filter(room => room.location === initialFilters.location);
+                    }
+                    if (initialFilters.capacity && initialFilters.capacity !== 'Any Capacity') {
+                        results = results.filter(room => getCapacityRange(room.capacity) === initialFilters.capacity);
+                    }
+                    setFilteredRooms(results);
+                    setHasFiltered(true);
+                }
+
                 setRooms(mappedRooms);
                 setLoading(false);
             } catch (err) {
@@ -624,6 +643,7 @@ const SearchPage: React.FC<SearchPageProps> = ({ onViewRoom: _onViewRoom, onBook
                                                 start_time: sStr,
                                                 end_time: eStr,
                                                 purpose: bookPurpose,
+                                                status: 'confirmed'
                                             });
                                         }, 800);
                                     }
