@@ -1,7 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Enable standalone output for minimal Docker image builds
-  output: 'standalone',
+  // Rely on default Next.js outputs for standard Vercel Hosting
   typescript: {
     ignoreBuildErrors: true,
   },
