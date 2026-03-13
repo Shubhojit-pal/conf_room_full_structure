@@ -147,7 +147,7 @@ roomSchema.index({ catalog_id: 1, room_id: 1 }, { unique: true });
 // │                                                                           │
 // │ This ensures IDs are always sequential and human-readable                │
 // └─────────────────────────────────────────────────────────────────────────┘
-roomSchema.pre('save', async function (next) {
+roomSchema.pre('save', async function () {
     if (!this.catalog_id || !this.room_id) {
         try {
             // Find the room with the latest createdAt date
@@ -189,10 +189,9 @@ roomSchema.pre('save', async function (next) {
                 }
             }
         } catch (error) {
-            return next(error);
+            throw error;
         }
     }
-    next();
 });
 
 // ┌─────────────────────────────────────────────────────────────────────────┐
