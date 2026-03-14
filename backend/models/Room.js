@@ -147,11 +147,11 @@ roomSchema.index({ catalog_id: 1, room_id: 1 }, { unique: true });
 // │                                                                           │
 // │ This ensures IDs are always sequential and human-readable                │
 // └─────────────────────────────────────────────────────────────────────────┘
-roomSchema.pre('save', async function () {
+roomSchema.pre('save', async function (next) {
     if (!this.catalog_id || !this.room_id) {
         try {
             // Find the room with the latest createdAt date
-            const latestRoom = await this.constructor.findOne().sort({ createdAt: -1 });
+            const latestRoom = await mongoose.models.Room.findOne().sort({ createdAt: -1 });
 
             // Auto-generate catalog_id if not provided
             if (!this.catalog_id) {
@@ -188,9 +188,16 @@ roomSchema.pre('save', async function () {
                     this.room_id = 'R-01';
                 }
             }
+            
+            // Crucial: Successfully finish the hook
+            next();
         } catch (error) {
-            throw error;
+            // Crucial: Pass errors to Mongoose so it aborts properly
+            next(error);
         }
+    } else {
+        // IDs already manually provided, skip auto-generation
+        next();
     }
 });
 
