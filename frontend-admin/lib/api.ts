@@ -13,6 +13,7 @@ export interface Room {
     room_number: string;
     availability: string;
     image_url?: string;
+    image_urls?: string[];
 }
 
 export interface Booking {
@@ -145,11 +146,14 @@ export const deleteRoom = async (catalog_id: string, room_id: string): Promise<{
     return res.json();
 };
 
-export const uploadRoomImage = async (file: File) => {
-    const formData = new FormData();
-    formData.append('image', file);
+    return res.json();
+};
 
-    const res = await fetch(`${API_URL}/rooms/upload-image`, {
+export const uploadRoomImages = async (files: File[]) => {
+    const formData = new FormData();
+    files.forEach(file => formData.append('images', file));
+
+    const res = await fetch(`${API_URL}/rooms/upload-images`, {
         method: 'POST',
         headers: {
             'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
@@ -159,7 +163,7 @@ export const uploadRoomImage = async (file: File) => {
 
     if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error || 'Failed to upload image');
+        throw new Error(err.error || 'Failed to upload images');
     }
     return res.json();
 };

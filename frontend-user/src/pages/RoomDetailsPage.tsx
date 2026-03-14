@@ -130,6 +130,30 @@ const RoomDetailsPage: React.FC<RoomDetailsPageProps> = ({ room: roomRef, onBack
         setViewingBookedSlot(null);
     }, [loadAvailability, activeDate]);
 
+    // Slideshow state
+    const [currentImageIndex, setCurrentImageIndex] = useState(0);
+    const gallery = room?.image_urls && room.image_urls.length > 0 
+        ? room.image_urls 
+        : (room?.image_url ? [room.image_url] : []);
+
+    useEffect(() => {
+        if (gallery.length <= 1) return;
+        const interval = setInterval(() => {
+            setCurrentImageIndex(prev => (prev + 1) % gallery.length);
+        }, 5000);
+        return () => clearInterval(interval);
+    }, [gallery.length]);
+
+    const nextImage = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setCurrentImageIndex(prev => (prev + 1) % gallery.length);
+    };
+
+    const prevImage = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setCurrentImageIndex(prev => (prev - 1 + gallery.length) % gallery.length);
+    };
+
     const isSlotInBooking = (slotLabel: string, b: BookedSlot) => {
         if (!b.selected_slots) {
             // Fallback for legacy (pure range)
@@ -313,18 +337,71 @@ const RoomDetailsPage: React.FC<RoomDetailsPageProps> = ({ room: roomRef, onBack
 
             {/* Image Gallery / Hero */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 h-[400px]">
-                <div className="md:col-span-2 h-full rounded-xl overflow-hidden bg-slate-100 group relative">
-                    {room.image_url ? (
-                        <img
-                            src={getDirectImageUrl(room.image_url)}
-                            alt={room.room_name}
-                            referrerPolicy="no-referrer"
-                            crossOrigin="anonymous"
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                            onError={(e) => {
-                                (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/' + room.room_id + '/1200/800';
-                            }}
-                        />
+                <div className="md:col-span-2 h-full rounded-xl overflow-hidden bg-slate-900 group relative shadow-2xl">
+                    {gallery.length > 0 ? (
+                        <>
+                            {/* Slides */}
+                            <div className="relative w-full h-full">
+                                {gallery.map((url, idx) => (
+                                    <div 
+                                        key={idx}
+                                        className={`absolute inset-0 transition-all duration-1000 ease-in-out transform ${
+                                            idx === currentImageIndex 
+                                                ? 'opacity-100 scale-100 translate-x-0' 
+                                                : 'opacity-0 scale-110 translate-x-4 pointer-events-none'
+                                        }`}
+                                    >
+                                        <img
+                                            src={getDirectImageUrl(url)}
+                                            alt={`${room.room_name} - View ${idx + 1}`}
+                                            referrerPolicy="no-referrer"
+                                            crossOrigin="anonymous"
+                                            className="w-full h-full object-cover"
+                                            onError={(e) => {
+                                                (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/' + room.room_id + '-' + idx + '/1200/800';
+                                            }}
+                                        />
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60" />
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Controls */}
+                            {gallery.length > 1 && (
+                                <>
+                                    <button 
+                                        onClick={prevImage}
+                                        className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full backdrop-blur-md transition-all opacity-0 group-hover:opacity-100 border border-white/20"
+                                    >
+                                        <ArrowLeft size={20} weight="bold" />
+                                    </button>
+                                    <button 
+                                        onClick={nextImage}
+                                        className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full backdrop-blur-md transition-all opacity-0 group-hover:opacity-100 border border-white/20"
+                                    >
+                                        <ArrowLeft size={20} weight="bold" className="rotate-180" />
+                                    </button>
+
+                                    {/* Indicators */}
+                                    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2">
+                                        {gallery.map((_, idx) => (
+                                            <button
+                                                key={idx}
+                                                onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(idx); }}
+                                                className={`h-1.5 rounded-full transition-all duration-300 ${
+                                                    idx === currentImageIndex ? 'w-8 bg-white' : 'w-2 bg-white/40 hover:bg-white/60'
+                                                }`}
+                                            />
+                                        ))}
+                                    </div>
+                                </>
+                            )}
+                            
+                            {/* Counter */}
+                            <div className="absolute top-4 right-4 px-3 py-1 bg-black/40 backdrop-blur-md rounded-full text-white text-[10px] font-bold uppercase tracking-widest border border-white/10">
+                                {currentImageIndex + 1} / {gallery.length}
+                            </div>
+                        </>
                     ) : (
                         <div className="w-full h-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
                             <div className="text-center">
@@ -336,18 +413,53 @@ const RoomDetailsPage: React.FC<RoomDetailsPageProps> = ({ room: roomRef, onBack
                     )}
                 </div>
                 <div className="flex flex-col gap-4 h-full">
-                    <div className="h-1/2 rounded-xl overflow-hidden bg-gradient-to-br from-slate-100 to-slate-50 flex items-center justify-center">
-                        <div className="text-center text-slate-400">
-                            <Users size={32} className="mx-auto mb-1" />
-                            <p className="text-sm font-medium">Capacity: {room.capacity}</p>
-                        </div>
-                    </div>
-                    <div className="h-1/2 rounded-xl overflow-hidden bg-gradient-to-br from-green-50 to-green-100/30 flex items-center justify-center">
-                        <div className="text-center text-green-600">
-                            <MapPin size={32} className="mx-auto mb-1" />
-                            <p className="text-sm font-medium">{room.location}</p>
-                        </div>
-                    </div>
+                    {/* Small previews if available */}
+                    {gallery.length > 1 ? (
+                        <>
+                            {gallery.slice(1, 3).map((url, idx) => (
+                                <div 
+                                    key={idx} 
+                                    className="h-1/2 rounded-xl overflow-hidden bg-slate-100 cursor-pointer group relative"
+                                    onClick={() => setCurrentImageIndex(idx + 1)}
+                                >
+                                    <img
+                                        src={getDirectImageUrl(url)}
+                                        alt={`Preview ${idx + 2}`}
+                                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                    />
+                                    <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors" />
+                                    {idx === 1 && gallery.length > 3 && (
+                                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white">
+                                            <span className="text-xl font-bold">+{gallery.length - 3}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                            {gallery.length === 2 && (
+                                <div className="h-1/2 rounded-xl overflow-hidden bg-gradient-to-br from-green-50 to-green-100/30 flex items-center justify-center">
+                                    <div className="text-center text-green-600">
+                                        <MapPin size={32} className="mx-auto mb-1" />
+                                        <p className="text-sm font-medium">{room.location}</p>
+                                    </div>
+                                </div>
+                            )}
+                        </>
+                    ) : (
+                        <>
+                            <div className="h-1/2 rounded-xl overflow-hidden bg-gradient-to-br from-slate-100 to-slate-50 flex items-center justify-center">
+                                <div className="text-center text-slate-400">
+                                    <Users size={32} className="mx-auto mb-1" />
+                                    <p className="text-sm font-medium">Capacity: {room.capacity}</p>
+                                </div>
+                            </div>
+                            <div className="h-1/2 rounded-xl overflow-hidden bg-gradient-to-br from-green-50 to-green-100/30 flex items-center justify-center">
+                                <div className="text-center text-green-600">
+                                    <MapPin size={32} className="mx-auto mb-1" />
+                                    <p className="text-sm font-medium">{room.location}</p>
+                                </div>
+                            </div>
+                        </>
+                    )}
                 </div>
             </div>
 

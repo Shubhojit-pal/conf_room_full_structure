@@ -13,6 +13,7 @@ export interface Room {
     room_number: string;
     availability: string;
     image_url?: string;
+    image_urls?: string[];
     room_type?: string;
 }
 

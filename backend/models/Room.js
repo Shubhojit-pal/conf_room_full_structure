@@ -109,12 +109,19 @@ const roomSchema = new mongoose.Schema({
     room_number: { type: String },
 
     /**
-     * image_url: URL to room image
+     * image_url: URL to room image (legacy/primary)
      * Type: String
      * Example: "/uploads/room-1234567890.jpg"
-     * Displayed in UI for room preview
+     * Displayed in UI for room preview (backwards compatibility)
      */
     image_url: { type: String },
+
+    /**
+     * image_urls: List of URLs for room gallery
+     * Type: Array of Strings
+     * Used for slideshow/gallery view
+     */
+    image_urls: { type: [String], default: [] },
 
     /**
      * availability: Quick availability indicator
@@ -148,6 +155,13 @@ roomSchema.index({ catalog_id: 1, room_id: 1 }, { unique: true });
 // │ This ensures IDs are always sequential and human-readable                │
 // └─────────────────────────────────────────────────────────────────────────┘
 roomSchema.pre('save', async function () {
+    // Sync image_url with first element of image_urls for backward compatibility
+    if (this.image_urls && this.image_urls.length > 0) {
+        this.image_url = this.image_urls[0];
+    } else if (this.image_url && (!this.image_urls || this.image_urls.length === 0)) {
+        this.image_urls = [this.image_url];
+    }
+
     if (!this.catalog_id || !this.room_id) {
         try {
             // Find the room with the latest createdAt date

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { X, Upload, ImageIcon, Loader2 } from 'lucide-react';
-import { createRoom, updateRoom, Room, uploadRoomImage } from '@/lib/api';
+import { createRoom, updateRoom, Room, uploadRoomImages } from '@/lib/api';
 import { getDirectImageUrl } from '@/lib/imageUtils';
 
 interface RoomModalProps {
@@ -41,6 +41,7 @@ export function RoomModal({ onClose, onSuccess, room }: RoomModalProps) {
         room_number: '',
         availability: 'available',
         image_url: '',
+        image_urls: [] as string[],
     });
 
     useEffect(() => {
@@ -59,6 +60,7 @@ export function RoomModal({ onClose, onSuccess, room }: RoomModalProps) {
                 room_number: room.room_number || '',
                 availability: room.availability || 'available',
                 image_url: room.image_url || '',
+                image_urls: room.image_urls || (room.image_url ? [room.image_url] : []),
             });
         }
     }, [room]);
@@ -73,19 +75,37 @@ export function RoomModal({ onClose, onSuccess, room }: RoomModalProps) {
     };
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
+        const files = Array.from(e.target.files || []);
+        if (files.length === 0) return;
 
         setUploading(true);
         setError('');
         try {
-            const { imageUrl } = await uploadRoomImage(file);
-            setFormData(prev => ({ ...prev, image_url: imageUrl }));
+            const { imageUrls } = await uploadRoomImages(files);
+            setFormData(prev => {
+                const newUrls = [...(prev.image_urls || []), ...imageUrls];
+                return { 
+                    ...prev, 
+                    image_urls: newUrls,
+                    image_url: newUrls[0] || '' // Sync primary image
+                };
+            });
         } catch (err: any) {
             setError(err.message);
         } finally {
             setUploading(false);
         }
+    };
+
+    const removeImage = (index: number) => {
+        setFormData(prev => {
+            const newUrls = (prev.image_urls || []).filter((_, i) => i !== index);
+            return {
+                ...prev,
+                image_urls: newUrls,
+                image_url: newUrls[0] || ''
+            };
+        });
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -175,54 +195,63 @@ export function RoomModal({ onClose, onSuccess, room }: RoomModalProps) {
 
                         <div className="flex flex-col gap-3">
                             <div className="flex gap-2">
-                                <input
-                                    className="flex-1 px-3 py-2 border border-border rounded-lg bg-background text-foreground text-sm"
-                                    value={formData.image_url}
-                                    onChange={e => setFormData({ ...formData, image_url: e.target.value })}
-                                    placeholder="Paste image URL (Unsplash, Drive, etc.)"
-                                />
+                                <div className="flex-1 text-xs text-muted-foreground bg-muted/30 p-2 rounded-lg border border-dashed border-border flex items-center justify-center">
+                                    Upload one or more images for the room gallery
+                                </div>
                                 <div className="relative">
                                     <input
                                         type="file"
                                         id="room-image-upload"
                                         className="hidden"
                                         accept="image/*"
+                                        multiple
                                         onChange={handleFileUpload}
                                         disabled={uploading}
                                     />
                                     <Button
                                         type="button"
                                         variant="outline"
-                                        size="icon"
-                                        className="h-10 w-10 shrink-0"
+                                        className="h-10 px-3 shrink-0 flex items-center gap-2"
                                         onClick={() => document.getElementById('room-image-upload')?.click()}
                                         disabled={uploading}
                                     >
                                         {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                                        <span>Upload Images</span>
                                     </Button>
                                 </div>
                             </div>
 
-                            {formData.image_url ? (
-                                <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-border bg-muted shadow-inner group">
-                                    <img
-                                        src={getDirectImageUrl(formData.image_url)}
-                                        alt="Preview"
-                                        referrerPolicy="no-referrer"
-                                        crossOrigin="anonymous"
-                                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                                        onError={(e) => {
-                                            (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x225?text=Invalid+Image+URL';
-                                        }}
-                                    />
-                                    <div className="absolute top-3 right-3 bg-black/60 text-white text-[10px] font-medium px-2.5 py-1 rounded-full backdrop-blur-md border border-white/10">
-                                        Preview Mode
-                                    </div>
+                            {formData.image_urls && formData.image_urls.length > 0 ? (
+                                <div className="grid grid-cols-2 gap-3">
+                                    {formData.image_urls.map((url, idx) => (
+                                        <div key={idx} className="relative aspect-video rounded-xl overflow-hidden border border-border bg-muted group">
+                                            <img
+                                                src={getDirectImageUrl(url)}
+                                                alt={`Preview ${idx + 1}`}
+                                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                                onError={(e) => {
+                                                    (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x225?text=Invalid+Image';
+                                                }}
+                                            />
+                                            {idx === 0 && (
+                                                <div className="absolute top-2 left-2 bg-primary/90 text-white text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-tighter">
+                                                    Primary
+                                                </div>
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={() => removeImage(idx)}
+                                                className="absolute top-2 right-2 p-1.5 bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500"
+                                            >
+                                                <X className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+                                    ))}
                                 </div>
                             ) : (
-                                <div className="w-full aspect-video rounded-xl border-2 border-dashed border-muted flex flex-col items-center justify-center gap-2 bg-muted/30">
+                                <div className="w-full h-32 rounded-xl border-2 border-dashed border-muted flex flex-col items-center justify-center gap-2 bg-muted/30">
                                     <ImageIcon className="w-8 h-8 text-muted-foreground/40" />
-                                    <p className="text-xs text-muted-foreground">No image selected</p>
+                                    <p className="text-xs text-muted-foreground">No images uploaded</p>
                                 </div>
                             )}
                         </div>

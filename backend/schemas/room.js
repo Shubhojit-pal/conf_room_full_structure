@@ -12,6 +12,7 @@ const roomSchema = z.object({
     room_number: z.string().optional(),
     availability: z.enum(['available', 'booked', 'maintenance']).optional().default('available'),
     image_url: z.string().optional(),
+    image_urls: z.array(z.string()).optional(),
 });
 
 const updateRoomSchema = roomSchema.partial();

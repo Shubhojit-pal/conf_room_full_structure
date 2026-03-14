@@ -119,6 +119,24 @@ router.post('/upload-image', authMiddleware, adminOnly, upload.single('image'), 
 });
 
 /**
+ * POST /api/rooms/upload-images (ADMIN ONLY)
+ * 
+ * Purpose: Upload multiple room images
+ */
+router.post('/upload-images', authMiddleware, adminOnly, upload.array('images', 10), (req, res) => {
+    try {
+        if (!req.files || req.files.length === 0) {
+            return res.status(400).json({ error: 'No files uploaded.' });
+        }
+        const imageUrls = req.files.map(file => `/uploads/${file.filename}`);
+        res.json({ imageUrls });
+    } catch (error) {
+        console.error('Error uploading images:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+/**
  * GET /api/rooms (PUBLIC)
  * 
  * Purpose: Retrieve list of all conference rooms in the system
@@ -234,7 +252,7 @@ router.get('/:catalog_id/:room_id', async (req, res) => {
 router.post('/', authMiddleware, adminOnly, validate(roomSchema), async (req, res) => {
     const { 
         catalog_id, room_id, room_name, capacity, location, amenities, 
-        status, floor_no, room_number, availability, image_url 
+        status, floor_no, room_number, availability, image_url, image_urls 
     } = req.body;
 
     try {
@@ -250,6 +268,7 @@ router.post('/', authMiddleware, adminOnly, validate(roomSchema), async (req, re
             floor_no, 
             room_number, 
             image_url,
+            image_urls,
             availability: availability || 'available'
         });
         res.status(201).json({ 
@@ -295,14 +314,14 @@ router.put('/:catalog_id/:room_id', authMiddleware, adminOnly, validate(updateRo
     const { catalog_id, room_id } = req.params;
     const { 
         room_name, capacity, location, amenities, status, 
-        floor_no, room_number, availability, image_url 
+        floor_no, room_number, availability, image_url, image_urls 
     } = req.body;
 
     try {
         // Find and update room, returning updated document
         const result = await Room.findOneAndUpdate(
             { catalog_id, room_id },
-            { room_name, capacity, location, amenities, status, floor_no, room_number, availability, image_url },
+            { room_name, capacity, location, amenities, status, floor_no, room_number, availability, image_url, image_urls },
             { new: true } // Return updated document
         );
         if (!result) {
