@@ -147,26 +147,24 @@ roomSchema.index({ catalog_id: 1, room_id: 1 }, { unique: true });
 // │                                                                           │
 // │ This ensures IDs are always sequential and human-readable                │
 // └─────────────────────────────────────────────────────────────────────────┘
-roomSchema.pre('save', async function (next) {
+roomSchema.pre('save', async function () {
     if (!this.catalog_id || !this.room_id) {
         try {
             // Find the room with the latest createdAt date
-            const latestRoom = await mongoose.models.Room.findOne().sort({ createdAt: -1 });
+            const latestRoom = await this.constructor.findOne().sort({ createdAt: -1 });
 
             // Auto-generate catalog_id if not provided
             if (!this.catalog_id) {
                 if (latestRoom && latestRoom.catalog_id) {
-                    // Extract numeric portion using regex: CAT-01 → "01" → 1
+                    // Extract numeric portion: CAT-01 → "01" → 1
                     const match = latestRoom.catalog_id.match(/CAT-(\d+)/);
                     if (match) {
                         const nextNum = parseInt(match[1]) + 1;
-                        // Format with zero-padding: 1 → "01", 10 → "10"
                         this.catalog_id = `CAT-${String(nextNum).padStart(2, '0')}`;
                     } else {
                         this.catalog_id = 'CAT-01';
                     }
                 } else {
-                    // First room ever
                     this.catalog_id = 'CAT-01';
                 }
             }
@@ -174,30 +172,22 @@ roomSchema.pre('save', async function (next) {
             // Auto-generate room_id if not provided
             if (!this.room_id) {
                 if (latestRoom && latestRoom.room_id) {
-                    // Extract numeric portion using regex: R-01 → "01" → 1
+                    // Extract numeric portion: R-01 → "01" → 1
                     const match = latestRoom.room_id.match(/R-(\d+)/);
                     if (match) {
                         const nextNum = parseInt(match[1]) + 1;
-                        // Format with zero-padding: 1 → "01", 10 → "10"
                         this.room_id = `R-${String(nextNum).padStart(2, '0')}`;
                     } else {
                         this.room_id = 'R-01';
                     }
                 } else {
-                    // First room ever
                     this.room_id = 'R-01';
                 }
             }
-            
-            // Crucial: Successfully finish the hook
-            next();
         } catch (error) {
-            // Crucial: Pass errors to Mongoose so it aborts properly
-            next(error);
+            // In async hooks, throwing an error will abort the save
+            throw error;
         }
-    } else {
-        // IDs already manually provided, skip auto-generation
-        next();
     }
 });
 
