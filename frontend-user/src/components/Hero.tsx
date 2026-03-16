@@ -35,7 +35,7 @@ const Hero: React.FC<HeroProps> = ({ onReserveClick, onCalendarClick }) => {
                     </button>
                     <button
                         onClick={onCalendarClick}
-                        className="bg-white hover:bg-slate-100 text-slate-800 font-semibold py-3 px-6 rounded-lg transition-all shadow-lg"
+                        className="bg-theme-card hover:bg-theme-bg text-theme-primary font-semibold py-3 px-6 rounded-lg transition-all shadow-lg border border-theme-border"
                     >
                         View Calendar
                     </button>
