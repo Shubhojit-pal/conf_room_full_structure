@@ -17,14 +17,13 @@
  *  - end_time: Time slot end (HH:MM:SS)
  *  - purpose: Reason for booking (meeting, training, etc.)
  *  - attendees: Number of people attending
- *  - status: Booking state (confirmed, pending, rejected, cancelled)
+ *  - status: Booking state (confirmed, rejected, cancelled)
  *  - selected_slots: Reserved time slots (comma-separated)
  *  - selected_dates: Dates included in booking (comma-separated)
  *  - createdAt: When booking was created
  *  - updatedAt: Last modification timestamp
  * 
  * Status Values:
- *  - 'pending': Awaiting admin approval
  *  - 'confirmed': Approved and active
  *  - 'rejected': Admin rejected the booking
  *  - 'cancelled': User or admin cancelled the booking
@@ -132,7 +131,7 @@ const bookingSchema = new mongoose.Schema({
     /**
      * status: Booking approval status
      * Type: String, Default: 'confirmed'
-     * Possible values: 'pending', 'confirmed', 'rejected', 'cancelled'
+     * Possible values: 'confirmed', 'confirmed', 'rejected', 'cancelled'
      * 'confirmed' = approved and active
      * 'cancelled' = user/admin cancelled
      */

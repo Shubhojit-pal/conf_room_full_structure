@@ -30,7 +30,7 @@ const createBookingSchema = z.object({
 });
 
 const updateBookingStatusSchema = z.object({
-    status: z.enum(['confirmed', 'pending', 'rejected', 'cancelled']),
+    status: z.enum(['confirmed', 'rejected', 'cancelled']),
 });
 
 module.exports = {
