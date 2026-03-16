@@ -336,7 +336,7 @@ const RoomDetailsPage: React.FC<RoomDetailsPageProps> = ({ room: roomRef, onBack
             </button>
 
             {/* Image Gallery / Hero */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 h-[400px]">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 h-[260px] md:h-[400px]">
                 <div className="md:col-span-2 h-full rounded-xl overflow-hidden bg-slate-900 group relative shadow-2xl">
                     {gallery.length > 0 ? (
                         <>
@@ -357,9 +357,6 @@ const RoomDetailsPage: React.FC<RoomDetailsPageProps> = ({ room: roomRef, onBack
                                             referrerPolicy="no-referrer"
                                             crossOrigin="anonymous"
                                             className="w-full h-full object-cover"
-                                            onError={(e) => {
-                                                (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/' + room.room_id + '-' + idx + '/1200/800';
-                                            }}
                                         />
                                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60" />
                                     </div>
@@ -412,7 +409,7 @@ const RoomDetailsPage: React.FC<RoomDetailsPageProps> = ({ room: roomRef, onBack
                         </div>
                     )}
                 </div>
-                <div className="flex flex-col gap-4 h-full">
+                <div className="hidden md:flex flex-col gap-4 h-full">
                     {/* Small previews if available */}
                     {gallery.length > 1 ? (
                         <>

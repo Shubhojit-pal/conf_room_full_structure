@@ -167,7 +167,7 @@ router.put('/:uid', authMiddleware, async (req, res) => {
         const result = await User.findOneAndUpdate(
             { uid },
             { name, dept, phone_no },
-            { new: true } // Return updated document
+            { returnDocument: 'after' } // Return updated document
         );
         if (!result) {
             return res.status(404).json({ error: 'User not found.' });

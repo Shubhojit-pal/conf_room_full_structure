@@ -78,6 +78,9 @@ const upload = multer({
 
 const router = express.Router();
 
+// Diagnostic route
+router.get('/debug/ping', (req, res) => res.json({ message: 'Rooms router is active' }));
+
 /**
  * POST /api/rooms/upload-image (ADMIN ONLY)
  * 
@@ -124,6 +127,7 @@ router.post('/upload-image', authMiddleware, adminOnly, upload.single('image'), 
  * Purpose: Upload multiple room images
  */
 router.post('/upload-images', authMiddleware, adminOnly, upload.array('images', 10), (req, res) => {
+    console.log('[DEBUG] POST /upload-images hit');
     try {
         if (!req.files || req.files.length === 0) {
             return res.status(400).json({ error: 'No files uploaded.' });
@@ -322,7 +326,7 @@ router.put('/:catalog_id/:room_id', authMiddleware, adminOnly, validate(updateRo
         const result = await Room.findOneAndUpdate(
             { catalog_id, room_id },
             { room_name, capacity, location, amenities, status, floor_no, room_number, availability, image_url, image_urls },
-            { new: true } // Return updated document
+            { returnDocument: 'after' } // Return updated document
         );
         if (!result) {
             return res.status(404).json({ error: 'Room not found.' });

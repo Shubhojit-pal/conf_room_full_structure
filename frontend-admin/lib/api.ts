@@ -146,9 +146,6 @@ export const deleteRoom = async (catalog_id: string, room_id: string): Promise<{
     return res.json();
 };
 
-    return res.json();
-};
-
 export const uploadRoomImages = async (files: File[]) => {
     const formData = new FormData();
     files.forEach(file => formData.append('images', file));

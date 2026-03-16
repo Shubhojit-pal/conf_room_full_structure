@@ -74,10 +74,9 @@ const DEFAULT_DEV_ORIGINS = [
 
 const corsOptions = {
     origin: (origin, callback) => {
-        // Allow requests with no origin (e.g., Postman, curl, server-to-server)
-        if (!origin) return callback(null, true);
+        // For "global" access, allow all origins if specifically requested or if ALLOWED_ORIGINS is empty
         const allowed = [...DEFAULT_DEV_ORIGINS, ...ALLOWED_ORIGINS];
-        if (allowed.includes(origin)) {
+        if (!origin || allowed.includes(origin) || ALLOWED_ORIGINS.length === 0) {
             callback(null, true);
         } else {
             console.warn(`⚠️  CORS blocked origin: ${origin}`);

@@ -7,6 +7,14 @@
   "devCommand": "npm run dev",
   "rewrites": [
     {
+      "source": "/api/:path*",
+      "destination": "https://faithful-youthfulness-production.up.railway.app/api/:path*"
+    },
+    {
+      "source": "/uploads/:path*",
+      "destination": "https://faithful-youthfulness-production.up.railway.app/uploads/:path*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

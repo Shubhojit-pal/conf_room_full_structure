@@ -145,7 +145,7 @@ router.put('/:id/read', authMiddleware, async (req, res) => {
         const notification = await Notification.findOneAndUpdate(
             { _id: req.params.id, uid: req.user.uid },
             { isRead: true },
-            { new: true }
+            { returnDocument: 'after' }
         );
         if (!notification) {
             return res.status(404).json({ error: 'Notification not found' });

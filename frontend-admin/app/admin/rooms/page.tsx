@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2, Eye } from 'lucide-react';
-import { fetchRooms, deleteRoom, Room } from '@/lib/api';
+import { Plus, Trash2 } from 'lucide-react';
+import { fetchRooms, deleteRoom, updateRoom, Room } from '@/lib/api';
 import { RoomModal } from '@/components/admin/rooms/RoomModal';
 import { getDirectImageUrl } from '@/lib/imageUtils';
 
@@ -15,6 +15,7 @@ export default function RoomsPage() {
   const [error, setError] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState<Room | undefined>(undefined);
+  const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set());
 
   const loadRooms = async () => {
     try {
@@ -39,9 +40,42 @@ export default function RoomsPage() {
     }
   };
 
+  const handleToggleStatus = async (room: Room) => {
+    const key = `${room.catalog_id}-${room.room_id}`;
+    if (togglingIds.has(key)) return;
+
+    const newStatus = room.status === 'inactive' ? 'active' : 'inactive';
+
+    // Optimistic update for instant UI feedback
+    setRooms(prev => prev.map(r =>
+      r.catalog_id === room.catalog_id && r.room_id === room.room_id
+        ? { ...r, status: newStatus }
+        : r
+    ));
+    setTogglingIds(prev => new Set(prev).add(key));
+
+    try {
+      await updateRoom(room.catalog_id, room.room_id, { status: newStatus });
+    } catch (e: any) {
+      // Rollback on failure
+      setRooms(prev => prev.map(r =>
+        r.catalog_id === room.catalog_id && r.room_id === room.room_id
+          ? { ...r, status: room.status }
+          : r
+      ));
+      alert(`Failed to update status: ${e.message}`);
+    } finally {
+      setTogglingIds(prev => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
+    }
+  };
+
   const totalRooms = rooms.length;
-  const activeRooms = rooms.filter(r => r.status === 'active' || r.status === 'available').length;
-  const maintenanceRooms = rooms.filter(r => r.status === 'maintenance').length;
+  const activeRooms = rooms.filter(r => r.status !== 'inactive').length;
+  const inactiveRooms = rooms.filter(r => r.status === 'inactive').length;
   const avgCapacity = totalRooms > 0 ? Math.round(rooms.reduce((s, r) => s + r.capacity, 0) / totalRooms) : 0;
 
   if (loading) return (
@@ -83,11 +117,11 @@ export default function RoomsPage() {
         </Card>
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">Active Rooms</p>
-          <p className="text-2xl font-bold text-foreground mt-1">{activeRooms}</p>
+          <p className="text-2xl font-bold text-green-600 mt-1">{activeRooms}</p>
         </Card>
         <Card className="p-4">
-          <p className="text-sm text-muted-foreground">Under Maintenance</p>
-          <p className="text-2xl font-bold text-foreground mt-1">{maintenanceRooms}</p>
+          <p className="text-sm text-muted-foreground">Inactive Rooms</p>
+          <p className="text-2xl font-bold text-slate-400 mt-1">{inactiveRooms}</p>
         </Card>
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">Avg Capacity</p>
@@ -99,8 +133,15 @@ export default function RoomsPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {rooms.map((room) => {
           const amenityList = room.amenities ? room.amenities.split(',').map(a => a.trim()) : [];
+          const isActive = room.status !== 'inactive';
+          const toggleKey = `${room.catalog_id}-${room.room_id}`;
+          const isToggling = togglingIds.has(toggleKey);
+
           return (
-            <Card key={`${room.catalog_id}-${room.room_id}`} className="p-6 hover:shadow-lg transition-shadow">
+            <Card
+              key={toggleKey}
+              className={`p-6 hover:shadow-lg transition-all duration-300 ${!isActive ? 'opacity-60' : ''}`}
+            >
               <div className="flex items-start justify-between mb-4">
                 <div className="flex gap-4">
                   {room.image_url && (
@@ -111,9 +152,6 @@ export default function RoomsPage() {
                         referrerPolicy="no-referrer"
                         crossOrigin="anonymous"
                         className="w-full h-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = 'https://via.placeholder.com/64x64?text=Error';
-                        }}
                       />
                     </div>
                   )}
@@ -122,37 +160,45 @@ export default function RoomsPage() {
                     <p className="text-sm text-muted-foreground">Floor {room.floor_no} — Room {room.room_number}</p>
                   </div>
                 </div>
-                <Badge
-                  className={
-                    room.status === 'active' || room.status === 'available'
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-orange-100 text-orange-800'
-                  }
-                >
-                  {room.status.charAt(0).toUpperCase() + room.status.slice(1)}
-                </Badge>
+
+                {/* Active / Inactive Toggle Switch */}
+                <div className="flex flex-col items-end gap-1 shrink-0 ml-2">
+                  <button
+                    onClick={() => handleToggleStatus(room)}
+                    disabled={isToggling}
+                    title={isActive ? 'Click to deactivate room' : 'Click to activate room'}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                      isToggling ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                    } ${isActive ? 'bg-green-500' : 'bg-slate-300'}`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 rounded-full bg-white shadow-md transform transition-transform duration-300 ${
+                        isActive ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                  <span className={`text-[10px] font-bold uppercase tracking-wider ${
+                    isToggling ? 'text-slate-400' : isActive ? 'text-green-600' : 'text-slate-400'
+                  }`}>
+                    {isToggling ? 'Saving...' : isActive ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
               </div>
 
               <div className="space-y-4">
                 <div>
-                  <p className="text-xs text-muted-foreground uppercase font-semibold mb-2">
-                    Capacity
-                  </p>
+                  <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Capacity</p>
                   <p className="text-2xl font-bold text-foreground">{room.capacity} people</p>
                 </div>
 
                 <div>
-                  <p className="text-xs text-muted-foreground uppercase font-semibold mb-2">
-                    Location
-                  </p>
+                  <p className="text-xs text-muted-foreground uppercase font-semibold mb-1">Location</p>
                   <p className="text-sm font-medium text-foreground">{room.location}</p>
                 </div>
 
                 {amenityList.length > 0 && (
                   <div>
-                    <p className="text-xs text-muted-foreground uppercase font-semibold mb-2">
-                      Amenities
-                    </p>
+                    <p className="text-xs text-muted-foreground uppercase font-semibold mb-2">Amenities</p>
                     <div className="flex flex-wrap gap-2">
                       {amenityList.map((amenity) => (
                         <Badge key={amenity} variant="secondary" className="text-xs">

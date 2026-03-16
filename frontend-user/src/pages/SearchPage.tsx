@@ -57,6 +57,7 @@ export interface SearchRoom {
     utilization: number;
     amenities: string[];
     type: string;
+    isInactive: boolean; // true when admin has deactivated the room
 }
 
 /**
@@ -244,7 +245,7 @@ const SearchPage: React.FC<SearchPageProps> = ({ onViewRoom: _onViewRoom, onBook
     };
 
     useEffect(() => {
-        const loadRooms = async () => {
+        const loadRooms = async (isInitial = false) => {
             try {
                 const apiRooms = await fetchRooms();
                 const mappedRooms: SearchRoom[] = apiRooms.map((r: ApiRoom) => ({
@@ -254,14 +255,15 @@ const SearchPage: React.FC<SearchPageProps> = ({ onViewRoom: _onViewRoom, onBook
                     location: r.location,
                     description: `Located on Floor ${r.floor_no}, Room ${r.room_number}. ${r.availability || 'Available for booking.'}`,
                     capacity: r.capacity,
-                    image: getDirectImageUrl(r.image_url) || `https://picsum.photos/seed/${r.room_id}/500/300`,
+                    image: getDirectImageUrl(r.image_url),
                     tags: [r.status || 'Available'],
                     utilization: Math.floor(Math.random() * 100),
                     amenities: r.amenities ? r.amenities.split(',').map(a => a.trim()) : [],
-                    type: r.room_type || 'Conference Room'
+                    type: r.room_type || 'Conference Room',
+                    isInactive: r.status === 'inactive',
                 }));
                 
-                if (initialFilters && (initialFilters.location !== 'All Locations' || initialFilters.capacity !== 'Any Capacity')) {
+                if (isInitial && initialFilters && (initialFilters.location !== 'All Locations' || initialFilters.capacity !== 'Any Capacity')) {
                     let results = mappedRooms;
                     if (initialFilters.location && initialFilters.location !== 'All Locations') {
                         results = results.filter(room => room.location === initialFilters.location);
@@ -274,14 +276,20 @@ const SearchPage: React.FC<SearchPageProps> = ({ onViewRoom: _onViewRoom, onBook
                 }
 
                 setRooms(mappedRooms);
-                setLoading(false);
+                if (isInitial) setLoading(false);
             } catch (err) {
                 console.error(err);
-                setError('Failed to load rooms. Please check if the backend is running.');
-                setLoading(false);
+                if (isInitial) {
+                    setError('Failed to load rooms. Please check if the backend is running.');
+                    setLoading(false);
+                }
             }
         };
-        loadRooms();
+
+        loadRooms(true);
+        // Poll every 30 seconds so status changes from admin reflect automatically
+        const interval = setInterval(() => loadRooms(false), 30000);
+        return () => clearInterval(interval);
     }, []);
 
     const filters = {
@@ -458,19 +466,27 @@ const SearchPage: React.FC<SearchPageProps> = ({ onViewRoom: _onViewRoom, onBook
                     {roomTypes.map((room) => (
                         <div
                             key={room.id}
-                            className="bg-white rounded-xl border border-slate-200 overflow-hidden hover:shadow-lg transition-shadow"
+                            className={`bg-white rounded-xl border overflow-hidden transition-shadow ${
+                                room.isInactive
+                                    ? 'border-slate-200 opacity-60 grayscale-[40%]'
+                                    : 'border-slate-200 hover:shadow-lg'
+                            }`}
                         >
-                            <div className="h-48 overflow-hidden bg-slate-100">
+                            <div className="h-48 overflow-hidden bg-slate-100 relative">
                                 <img
                                     src={room.image}
                                     alt={room.name}
                                     referrerPolicy="no-referrer"
                                     crossOrigin="anonymous"
                                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                                    onError={(e) => {
-                                        (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/' + room.id + '/1200/800';
-                                    }}
                                 />
+                                {room.isInactive && (
+                                    <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                                        <span className="bg-red-500 text-white text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-widest shadow-lg">
+                                            Currently Unavailable
+                                        </span>
+                                    </div>
+                                )}
                             </div>
                             <div className="p-6">
                                 <h3 className="text-lg font-bold text-slate-800 mb-2">{room.type}</h3>
@@ -483,6 +499,7 @@ const SearchPage: React.FC<SearchPageProps> = ({ onViewRoom: _onViewRoom, onBook
                                 </div>
                                 <button
                                     onClick={() => {
+                                        if (room.isInactive) return;
                                         if (_onViewRoom) {
                                             _onViewRoom(room.catalog_id, room.id);
                                         } else {
@@ -490,9 +507,14 @@ const SearchPage: React.FC<SearchPageProps> = ({ onViewRoom: _onViewRoom, onBook
                                         }
                                     }}
                                     type="button"
-                                    className="w-full bg-primary hover:bg-primary-dark text-white font-semibold py-2 rounded-lg transition-colors cursor-pointer"
+                                    disabled={room.isInactive}
+                                    className={`w-full font-semibold py-2 rounded-lg transition-colors ${
+                                        room.isInactive
+                                            ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                                            : 'bg-primary hover:bg-primary-dark text-white cursor-pointer'
+                                    }`}
                                 >
-                                    Select Room Type
+                                    {room.isInactive ? 'Room Unavailable' : 'Select Room Type'}
                                 </button>
                             </div>
                         </div>

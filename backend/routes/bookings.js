@@ -702,7 +702,7 @@ router.put('/:id/status', authMiddleware, adminOnly, validate(updateBookingStatu
         const result = await Booking.findOneAndUpdate(
             { booking_id: id }, 
             { status }, 
-            { new: true }
+            { returnDocument: 'after' }
         );
         if (!result) {
             return res.status(404).json({ error: 'Booking not found.' });
