@@ -14,6 +14,7 @@ const roomSchema = z.object({
     image_url: z.string().optional(),
     image_urls: z.array(z.string()).optional(),
     mapLink: z.string().url().optional().or(z.literal('')),
+    layout: z.any().optional(),
 });
 
 const updateRoomSchema = roomSchema.partial();

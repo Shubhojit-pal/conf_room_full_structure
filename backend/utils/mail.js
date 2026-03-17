@@ -1,14 +1,27 @@
-const { Resend } = require('resend');
+const nodemailer = require('nodemailer');
 require('dotenv').config();
 
-// The user provided the API key: re_578xCXA8_3NgNov4L7WxujKqusbDRmgPU
-// It's strongly recommended to put this in your .env file as RESEND_API_KEY
-const resend = new Resend(process.env.RESEND_API_KEY || 're_578xCXA8_3NgNov4L7WxujKqusbDRmgPU');
+// Initialize the SMTP transporter
+const transporter = nodemailer.createTransport({
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false, // Use STARTTLS
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    },
+    tls: {
+        // Do not fail on invalid certs
+        rejectUnauthorized: false
+    },
+    // Force IPv4
+    family: 4,
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+    socketTimeout: 15000
+});
 
-// Resend allows sending from onboarding@resend.dev for testing purposes,
-// but it will ONLY deliver to the email address you registered your Resend account with.
-// Once you verify a domain in Resend, you can change this to bookings@yourdomain.com via the EMAIL_FROM env variable.
-const fromEmail = process.env.EMAIL_FROM || 'onboarding@resend.dev';
+const fromEmail = process.env.EMAIL_USER;
 
 /**
  * Send an OTP to a user's email
@@ -17,7 +30,7 @@ const fromEmail = process.env.EMAIL_FROM || 'onboarding@resend.dev';
  * @param {string} type - 'registration' or 'reset'
  */
 const sendOtpEmail = async (toEmail, otp, type = 'registration') => {
-    console.log(`[MAIL] Attempting to send ${type} OTP to: ${toEmail} via Resend`);
+    console.log(`[MAIL] Attempting to send ${type} OTP to: ${toEmail} via SMTP (${process.env.EMAIL_SERVICE})`);
     
     const subject = type === 'registration' 
         ? 'Verify Your Account - Conference Room Booking' 
@@ -38,24 +51,20 @@ const sendOtpEmail = async (toEmail, otp, type = 'registration') => {
         </div>
     `;
 
+    const mailOptions = {
+        from: `"Conference Room Booking" <${fromEmail}>`,
+        to: toEmail,
+        subject: subject,
+        html: htmlContent
+    };
+
     try {
-        const { data, error } = await resend.emails.send({
-            from: `"Conference Room Booking" <${fromEmail}>`,
-            to: [toEmail],
-            subject: subject,
-            html: htmlContent
-        });
-
-        if (error) {
-            console.error('[MAIL] Resend API Error (OTP):', error);
-            return { success: false, error: error.message };
-        }
-
-        console.log(`[MAIL] Success! MessageID: ${data.id}`);
+        const info = await transporter.sendMail(mailOptions);
+        console.log(`[MAIL] Success! MessageID: ${info.messageId}`);
         return { success: true };
     } catch (error) {
-        console.error('[MAIL] CRITICAL ERROR sending OTP email:', error);
-        return { success: false, error: error.message || 'Unknown API error' };
+        console.error('[MAIL] SMTP Error (OTP):', error);
+        return { success: false, error: error.message };
     }
 };
 
@@ -66,7 +75,7 @@ const sendOtpEmail = async (toEmail, otp, type = 'registration') => {
  * @param {string} type - 'created', 'confirmed', 'rejected', 'cancelled'
  */
 const sendBookingEmail = async (toEmail, bookingDetails, type = 'confirmed') => {
-    console.log(`[MAIL] Attempting to send Booking ${type} notification to: ${toEmail} via Resend`);
+    console.log(`[MAIL] Attempting to send Booking ${type} notification to: ${toEmail} via SMTP (${process.env.EMAIL_SERVICE})`);
 
     let subject = '';
     let title = '';
@@ -110,23 +119,19 @@ const sendBookingEmail = async (toEmail, bookingDetails, type = 'confirmed') => 
         </div>
     `;
 
+    const mailOptions = {
+        from: `"Conference Room Booking" <${fromEmail}>`,
+        to: toEmail,
+        subject: subject,
+        html: htmlContent
+    };
+
     try {
-        const { data, error } = await resend.emails.send({
-            from: `"Conference Room Booking" <${fromEmail}>`,
-            to: [toEmail],
-            subject: subject,
-            html: htmlContent
-        });
-
-        if (error) {
-            console.error('[MAIL] Resend API Error (Booking):', error);
-            return false;
-        }
-
-        console.log(`[MAIL] Booking ${type} email sent successfully! MessageID: ${data.id}`);
+        const info = await transporter.sendMail(mailOptions);
+        console.log(`[MAIL] Booking ${type} email sent successfully! MessageID: ${info.messageId}`);
         return true;
     } catch (error) {
-        console.error('[MAIL] CRITICAL ERROR sending booking email:', error);
+        console.error('[MAIL] SMTP Error (Booking):', error);
         return false;
     }
 };

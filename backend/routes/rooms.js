@@ -256,7 +256,7 @@ router.get('/:catalog_id/:room_id', async (req, res) => {
 router.post('/', authMiddleware, adminOnly, validate(roomSchema), async (req, res) => {
     const { 
         catalog_id, room_id, room_name, capacity, location, amenities, 
-        status, floor_no, room_number, availability, image_url, image_urls, mapLink 
+        status, floor_no, room_number, availability, image_url, image_urls, mapLink, layout 
     } = req.body;
 
     try {
@@ -274,6 +274,7 @@ router.post('/', authMiddleware, adminOnly, validate(roomSchema), async (req, re
             image_url,
             image_urls,
             mapLink,
+            layout: layout || null,
             availability: availability || 'available'
         });
         res.status(201).json({ 
@@ -319,14 +320,14 @@ router.put('/:catalog_id/:room_id', authMiddleware, adminOnly, validate(updateRo
     const { catalog_id, room_id } = req.params;
     const { 
         room_name, capacity, location, amenities, status, 
-        floor_no, room_number, availability, image_url, image_urls, mapLink 
+        floor_no, room_number, availability, image_url, image_urls, mapLink, layout 
     } = req.body;
 
     try {
         // Find and update room, returning updated document
         const result = await Room.findOneAndUpdate(
             { catalog_id, room_id },
-            { room_name, capacity, location, amenities, status, floor_no, room_number, availability, image_url, image_urls, mapLink },
+            { room_name, capacity, location, amenities, status, floor_no, room_number, availability, image_url, image_urls, mapLink, layout },
             { returnDocument: 'after' } // Return updated document
         );
         if (!result) {

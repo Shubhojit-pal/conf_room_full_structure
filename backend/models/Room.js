@@ -142,6 +142,13 @@ const roomSchema = new mongoose.Schema({
      * Example: "https://maps.google.com/?q=22.5726,88.3639"
      */
     mapLink: { type: String },
+    /**
+     * layout: Visual room layout data designed by admin
+     * Type: Mixed (JSON object containing grid elements)
+     * Example: { rows: 8, cols: 10, elements: [{type:'seat', x:2, y:1}, ...] }
+     * If null, no layout is configured for this room.
+     */
+    layout: { type: mongoose.Schema.Types.Mixed, default: null },
 }, { timestamps: true }); // Auto-add createdAt and updatedAt fields
 
 // ┌─────────────────────────────────────────────────────────────────────────┐
