@@ -108,13 +108,14 @@ router.get('/', authMiddleware, adminOnly, async (req, res) => {
         // Enrich with user, room, and ticket information
         const enriched = await Promise.all(bookings.map(async (b) => {
             const user = await User.findOne({ uid: b.uid }).select('name email').lean();
-            const room = await Room.findOne({ catalog_id: b.catalog_id, room_id: b.room_id }).select('room_name').lean();
+            const room = await Room.findOne({ catalog_id: b.catalog_id, room_id: b.room_id }).select('room_name mapLink').lean();
             const ticket = await Ticket.findOne({ booking_id: b.booking_id }).select('ticket_id').lean();
             return {
                 ...b,
                 user_name: user?.name || '',
                 email: user?.email || '',
                 room_name: room?.room_name || '',
+                mapLink: room?.mapLink || '',
                 ticket_id: ticket?.ticket_id || null,
             };
         }));
@@ -147,7 +148,7 @@ router.get('/all', authMiddleware, async (req, res) => {
         const enriched = await Promise.all(bookings.map(async (b) => {
             const user = await User.findOne({ uid: b.uid }).select('name email').lean();
             const room = await Room.findOne({ catalog_id: b.catalog_id, room_id: b.room_id })
-                .select('room_name location floor_no')
+                .select('room_name location floor_no mapLink')
                 .lean();
                 
             return {
@@ -156,7 +157,8 @@ router.get('/all', authMiddleware, async (req, res) => {
                 email: user?.email || '',
                 room_name: room?.room_name || 'Room',
                 location: room?.location || '',
-                floor_no: room?.floor_no || null
+                floor_no: room?.floor_no || null,
+                mapLink: room?.mapLink || ''
             };
         }));
 
@@ -221,7 +223,7 @@ router.get('/user/:uid', authMiddleware, async (req, res) => {
 
         const enriched = await Promise.all(bookings.map(async (b) => {
             const room = await Room.findOne({ catalog_id: b.catalog_id, room_id: b.room_id })
-                .select('room_name location floor_no')
+                .select('room_name location floor_no mapLink')
                 .lean();
             const user = await User.findOne({ uid: b.uid }).select('name email').lean();
             const ticket = await Ticket.findOne({ booking_id: b.booking_id }).select('ticket_id').lean();
@@ -230,6 +232,7 @@ router.get('/user/:uid', authMiddleware, async (req, res) => {
                 room_name: room?.room_name || '',
                 location: room?.location || '',
                 floor_no: room?.floor_no || null,
+                mapLink: room?.mapLink || '',
                 user_name: user?.name || '',
                 email: user?.email || '',
                 ticket_id: ticket?.ticket_id || null,

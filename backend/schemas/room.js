@@ -11,6 +11,7 @@ const roomSchema = z.object({
     floor_no: z.number().int().optional(),
     room_number: z.string().optional(),
     availability: z.enum(['available', 'booked', 'maintenance']).optional().default('available'),
+    room_type: z.string().optional().default('Conference Room'),
     image_url: z.string().optional(),
     image_urls: z.array(z.string()).optional(),
     mapLink: z.string().url().optional().or(z.literal('')),
