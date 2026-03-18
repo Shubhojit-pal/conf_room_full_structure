@@ -30,9 +30,14 @@ const express = require('express');
 const Room = require('../models/Room');
 const { authMiddleware, adminOnly } = require('../middleware/auth');
 const multer = require('multer');
+const { v2: cloudinary } = require('cloudinary');
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const path = require('path');
 const { validate } = require('../middleware/validate');
 const { roomSchema, updateRoomSchema } = require('../schemas/room');
+
+// Cloudinary will automatically use the CLOUDINARY_URL environment variable 
+// provided by the user in the .env file.
 
 // ┌─────────────────────────────────────────────────────────────────────────┐
 // │ MULTER CONFIGURATION: Setup file storage for room images                │
@@ -49,31 +54,21 @@ const { roomSchema, updateRoomSchema } = require('../schemas/room');
 // │  - Allowed extensions: .jpg, .jpeg, .png, .webp                         │
 // │  - Case-insensitive extension check                                      │
 // └─────────────────────────────────────────────────────────────────────────┘
-const storage = multer.diskStorage({
-    // Specify directory where uploaded files will be stored
-    destination: (req, file, cb) => {
-        cb(null, 'uploads/');
-    },
-    // Generate unique filename to avoid collisions
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, 'room-' + uniqueSuffix + path.extname(file.originalname));
+const storage = new CloudinaryStorage({
+    cloudinary: cloudinary,
+    params: {
+        folder: 'conference_rooms',
+        allowed_formats: ['jpeg', 'jpg', 'png', 'webp'],
+        public_id: (req, file) => {
+            const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+            return 'room-' + uniqueSuffix;
+        }
     }
 });
 
 const upload = multer({
     storage: storage,
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
-    // Validate file type before accepting
-    fileFilter: (req, file, cb) => {
-        const filetypes = /jpeg|jpg|png|webp/;
-        const mimetype = filetypes.test(file.mimetype);
-        const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
-        if (mimetype && extname) {
-            return cb(null, true);
-        }
-        cb(new Error('Only images (jpeg, jpg, png, webp) are allowed!'));
-    }
+    limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
 });
 
 const router = express.Router();
@@ -112,8 +107,8 @@ router.post('/upload-image', authMiddleware, adminOnly, upload.single('image'), 
         if (!req.file) {
             return res.status(400).json({ error: 'No file uploaded.' });
         }
-        // Return relative URL path that can be used in image src
-        const imageUrl = `/uploads/${req.file.filename}`;
+        // Return full Cloudinary URL
+        const imageUrl = req.file.path;
         res.json({ imageUrl });
     } catch (error) {
         console.error('Error uploading image:', error);
@@ -132,7 +127,7 @@ router.post('/upload-images', authMiddleware, adminOnly, upload.array('images', 
         if (!req.files || req.files.length === 0) {
             return res.status(400).json({ error: 'No files uploaded.' });
         }
-        const imageUrls = req.files.map(file => `/uploads/${file.filename}`);
+        const imageUrls = req.files.map(file => file.path);
         res.json({ imageUrls });
     } catch (error) {
         console.error('Error uploading images:', error);

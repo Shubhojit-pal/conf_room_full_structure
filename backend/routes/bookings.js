@@ -107,13 +107,14 @@ router.get('/', authMiddleware, adminOnly, async (req, res) => {
 
         // Enrich with user, room, and ticket information
         const enriched = await Promise.all(bookings.map(async (b) => {
-            const user = await User.findOne({ uid: b.uid }).select('name email').lean();
+            const user = await User.findOne({ uid: b.uid }).select('name email phone_no').lean();
             const room = await Room.findOne({ catalog_id: b.catalog_id, room_id: b.room_id }).select('room_name mapLink').lean();
             const ticket = await Ticket.findOne({ booking_id: b.booking_id }).select('ticket_id').lean();
             return {
                 ...b,
                 user_name: user?.name || '',
                 email: user?.email || '',
+                phone_no: user?.phone_no || '',
                 room_name: room?.room_name || '',
                 mapLink: room?.mapLink || '',
                 ticket_id: ticket?.ticket_id || null,
@@ -146,7 +147,7 @@ router.get('/all', authMiddleware, async (req, res) => {
 
         // Enrich with user and room information
         const enriched = await Promise.all(bookings.map(async (b) => {
-            const user = await User.findOne({ uid: b.uid }).select('name email').lean();
+            const user = await User.findOne({ uid: b.uid }).select('name email phone_no').lean();
             const room = await Room.findOne({ catalog_id: b.catalog_id, room_id: b.room_id })
                 .select('room_name location floor_no mapLink')
                 .lean();
@@ -155,6 +156,7 @@ router.get('/all', authMiddleware, async (req, res) => {
                 ...b,
                 user_name: user?.name || 'User',
                 email: user?.email || '',
+                phone_no: user?.phone_no || '',
                 room_name: room?.room_name || 'Room',
                 location: room?.location || '',
                 floor_no: room?.floor_no || null,
@@ -225,7 +227,7 @@ router.get('/user/:uid', authMiddleware, async (req, res) => {
             const room = await Room.findOne({ catalog_id: b.catalog_id, room_id: b.room_id })
                 .select('room_name location floor_no mapLink')
                 .lean();
-            const user = await User.findOne({ uid: b.uid }).select('name email').lean();
+            const user = await User.findOne({ uid: b.uid }).select('name email phone_no').lean();
             const ticket = await Ticket.findOne({ booking_id: b.booking_id }).select('ticket_id').lean();
             return {
                 ...b,
@@ -235,6 +237,7 @@ router.get('/user/:uid', authMiddleware, async (req, res) => {
                 mapLink: room?.mapLink || '',
                 user_name: user?.name || '',
                 email: user?.email || '',
+                phone_no: user?.phone_no || '',
                 ticket_id: ticket?.ticket_id || null,
             };
         }));
@@ -420,12 +423,38 @@ router.post('/', authMiddleware, validate(createBookingSchema), async (req, res)
         const roomObj = await Room.findOne({ catalog_id, room_id }).lean();
         if (!roomObj) return res.status(404).json({ error: 'Room not found.' });
 
-        // Validate attendee count
         const attendeeCount = parseInt(attendees) || 1;
         if (attendeeCount > roomObj.capacity) {
             return res.status(400).json({ 
                 error: `Attendees exceed room capacity (${roomObj.capacity}).` 
             });
+        }
+
+        // ┌─────────────────────────────────────────────────────┐
+        // │ NEW VALIDATIONS: 6 MONTH LIMIT & 180 DAY MAX       │
+        // └─────────────────────────────────────────────────────┘
+        const now = new Date();
+        const maxFutureDate = new Date();
+        maxFutureDate.setMonth(now.getMonth() + 6);
+        const maxFutureStr = maxFutureDate.toISOString().slice(0, 10);
+
+        // helper to validate a single date string
+        const isTooFar = (d) => d > maxFutureStr;
+
+        if (per_date_choices && Array.isArray(per_date_choices)) {
+            if (per_date_choices.length > 180) {
+                return res.status(400).json({ error: 'A single booking cannot exceed 180 dates.' });
+            }
+            const tooFar = per_date_choices.some(c => isTooFar(c.date));
+            if (tooFar) {
+                return res.status(400).json({ error: 'Bookings are only allowed up to 6 months in advance.' });
+            }
+        } else if (start_date && end_date) {
+            if (isTooFar(end_date)) {
+                return res.status(400).json({ error: 'Bookings are only allowed up to 6 months in advance.' });
+            }
+            // For range-based, activeDates list is calculated later, but we can check the count here too
+            // though most range bookings use the activeDates logic.
         }
 
         // ┌─────────────────────────────────────────────────────┐
@@ -571,6 +600,10 @@ router.post('/', authMiddleware, validate(createBookingSchema), async (req, res)
                 }
                 return days;
             })();
+
+        if (activeDates.length > 180) {
+            return res.status(400).json({ error: 'A single booking cannot exceed 180 dates.' });
+        }
 
         // Check for conflicts on each date
         for (const date of activeDates) {
