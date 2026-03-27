@@ -26,7 +26,7 @@
 
 const express = require('express');
 const Notification = require('../models/Notification');
-const { authMiddleware } = require('../middleware/auth');
+const { authMiddleware, adminAuthMiddleware } = require('../middleware/auth');
 
 const { sendBookingEmail } = require('../utils/mail');
 
@@ -66,54 +66,78 @@ const Room = require('../models/Room');
  *
  * @returns {Array<Notification>} Up to 50 most recent notifications (newest first)
  */
-router.get('/', authMiddleware, async (req, res) => {
+// Flexible middleware: accepts both user JWT and admin JWT
+const flexAuth = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'No token provided.' });
+
+    // Try admin JWT first, then fall back to user JWT
+    const jwt = require('jsonwebtoken');
     try {
-        // Proactively check for upcoming bookings in the next 1 hour
-        const now = new Date();
-        const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
-        
-        const dateStr = now.toISOString().split('T')[0];
-        const upcomingBookings = await Booking.find({
-            uid: req.user.uid,
-            status: 'confirmed',
-            start_date: dateStr,
-            // Simple check: starts after now and before 1 hour from now
-            // (Note: this is a simplified time check for demo purposes)
-        }).lean();
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        if (decoded.role && ['location_admin', 'super_admin'].includes(decoded.role)) {
+            req.admin = decoded;
+        } else {
+            req.user = decoded;
+        }
+        next();
+    } catch (err) {
+        return res.status(403).json({ error: 'Invalid or expired token.' });
+    }
+};
 
-        for (const booking of upcomingBookings) {
-            // Check if reminder already exists
-            const existingReminder = await Notification.findOne({
+router.get('/', flexAuth, async (req, res) => {
+    try {
+        let notifications;
+        if (req.admin) {
+            // Admin: show all recent notifications system-wide (latest 50)
+            notifications = await Notification.find()
+                .sort({ createdAt: -1 })
+                .limit(50);
+        } else {
+            // Regular user flow with reminders
+            const now = new Date();
+            const dateStr = now.toISOString().split('T')[0];
+            const upcomingBookings = await Booking.find({
                 uid: req.user.uid,
-                type: 'reminder',
-                booking_id: booking.booking_id
-            });
+                status: 'confirmed',
+                start_date: dateStr,
+            }).lean();
 
-            if (!existingReminder) {
-                const room = await Room.findOne({ catalog_id: booking.catalog_id, room_id: booking.room_id }).select('room_name').lean();
-                await Notification.create({
+            for (const booking of upcomingBookings) {
+                const existingReminder = await Notification.findOne({
                     uid: req.user.uid,
-                    title: 'Upcoming Meeting Reminder',
-                    message: `Your booking for ${room?.room_name || 'the room'} starts soon at ${booking.start_time}.`,
                     type: 'reminder',
                     booking_id: booking.booking_id
                 });
 
-                // Send Email Reminder
-                if (req.user.email) {
-                    await sendBookingEmail(req.user.email, {
-                        room_name: room?.room_name || 'Conference Room',
-                        date: booking.start_date,
-                        start_time: booking.start_time,
-                        end_time: booking.end_time
-                    }, 'confirmed'); // Use 'confirmed' template or generic. For now 'confirmed' works.
+                if (!existingReminder) {
+                    const room = await Room.findOne({ catalog_id: booking.catalog_id, room_id: booking.room_id }).select('room_name').lean();
+                    await Notification.create({
+                        uid: req.user.uid,
+                        title: 'Upcoming Meeting Reminder',
+                        message: `Your booking for ${room?.room_name || 'the room'} starts soon at ${booking.start_time}.`,
+                        type: 'reminder',
+                        booking_id: booking.booking_id
+                    });
+
+                    if (req.user.email) {
+                        await sendBookingEmail(req.user.email, {
+                            room_name: room?.room_name || 'Conference Room',
+                            date: booking.start_date,
+                            start_time: booking.start_time,
+                            end_time: booking.end_time
+                        }, 'confirmed');
+                    }
                 }
             }
+
+            notifications = await Notification.find({ uid: req.user.uid })
+                .sort({ createdAt: -1 })
+                .limit(50);
         }
 
-        const notifications = await Notification.find({ uid: req.user.uid })
-            .sort({ createdAt: -1 })
-            .limit(50);
         res.json(notifications);
     } catch (error) {
         console.error('Fetch notifications error:', error);

@@ -12,6 +12,7 @@ const registerSchema = z.object({
 const loginSchema = z.object({
     email: z.string().email('Invalid email format'),
     password: z.string().min(1, 'Password is required'),
+    accountType: z.enum(['user', 'admin']).optional(),
 });
 
 const forgotPasswordSchema = z.object({

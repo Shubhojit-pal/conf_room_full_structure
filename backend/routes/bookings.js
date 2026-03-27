@@ -36,7 +36,7 @@ const User = require('../models/User');
 const Room = require('../models/Room');
 const Ticket = require('../models/Ticket');
 const Notification = require('../models/Notification');
-const { authMiddleware, adminOnly } = require('../middleware/auth');
+const { authMiddleware, adminOnly, adminAuthMiddleware, anyAdminOnly } = require('../middleware/auth');
 const { sendBookingEmail } = require('../utils/mail');
 const { notifyAdmins } = require('../utils/notifications');
 const { validate } = require('../middleware/validate');
@@ -100,10 +100,24 @@ async function getNextBookingId() {
  *  - 401/403: Missing token or insufficient permissions
  *  - 500: Server error
  */
-router.get('/', authMiddleware, adminOnly, async (req, res) => {
+router.get('/', adminAuthMiddleware, anyAdminOnly, async (req, res) => {
     try {
-        // Fetch all bookings, most recent first
-        const bookings = await Booking.find().sort({ start_date: -1, start_time: -1 }).lean();
+        // Build query — location_admin only sees bookings for their locations
+        let locationFilter = {};
+        if (req.admin.role === 'location_admin' && req.admin.assigned_locations.length > 0) {
+            // Find room catalog_id/room_id combos in the admin's locations
+            const rooms = await Room.find(
+                { location_id: { $in: req.admin.assigned_locations } }
+            ).select('catalog_id room_id').lean();
+
+            const roomPairs = rooms.map(r => ({ catalog_id: r.catalog_id, room_id: r.room_id }));
+            if (roomPairs.length === 0) {
+                return res.json([]); // No rooms in this location
+            }
+            locationFilter = { $or: roomPairs };
+        }
+
+        const bookings = await Booking.find(locationFilter).sort({ booking_id: -1 }).lean();
 
         // Enrich with user, room, and ticket information
         const enriched = await Promise.all(bookings.map(async (b) => {
@@ -142,7 +156,7 @@ router.get('/all', authMiddleware, async (req, res) => {
     try {
         // Fetch all non-cancelled bookings
         const bookings = await Booking.find({ status: { $ne: 'cancelled' } })
-            .sort({ start_date: -1, start_time: -1 })
+            .sort({ booking_id: -1 })
             .lean();
 
         // Enrich with user and room information
@@ -730,7 +744,7 @@ router.post('/', authMiddleware, validate(createBookingSchema), async (req, res)
  *  - 401/403: Missing token or insufficient permissions
  *  - 500: Server error
  */
-router.put('/:id/status', authMiddleware, adminOnly, validate(updateBookingStatusSchema), async (req, res) => {
+router.put('/:id/status', adminAuthMiddleware, anyAdminOnly, validate(updateBookingStatusSchema), async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
 

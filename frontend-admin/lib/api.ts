@@ -7,6 +7,7 @@ export interface Room {
     room_name: string;
     capacity: number;
     location: string;
+    location_id?: string;
     amenities: string;
     status: string;
     floor_no: number;
@@ -17,6 +18,7 @@ export interface Room {
     image_urls?: string[];
     mapLink?: string;
     layout?: RoomLayout | null;
+    policy_pdf?: string;
 }
 
 export interface RoomLayoutElement {
@@ -64,6 +66,18 @@ export interface User {
     userrole_id: string;
 }
 
+// Admin from the separate 'admins' collection
+export interface Admin {
+    admin_id: string;
+    name: string;
+    email: string;
+    dept?: string;
+    phone_no: string;
+    role: 'location_admin' | 'super_admin';
+    assigned_locations: string[];
+    isActive: boolean;
+}
+
 export interface Cancellation {
     cancel_id: string;
     booking_id: string;
@@ -97,7 +111,7 @@ export const getAdminToken = (): string | null => {
     return localStorage.getItem('admin_token');
 };
 
-export const getAdminUser = (): User | null => {
+export const getAdminUser = (): Admin | null => {
     if (typeof window === 'undefined') return null;
     const u = localStorage.getItem('admin_user');
     return u ? JSON.parse(u) : null;
@@ -122,7 +136,8 @@ const handleAuthError = (res: Response) => {
 
 // ── Auth ───────────────────────────────────────────────────
 export const loginAdmin = async (email: string, password: string) => {
-    const res = await fetch(`${API_URL}/auth/login`, {
+    // Admin login hits the dedicated /api/admins/login endpoint
+    const res = await fetch(`${API_URL}/admins/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -136,7 +151,7 @@ export const loginAdmin = async (email: string, password: string) => {
     }
     const data = await res.json();
     localStorage.setItem('admin_token', data.token);
-    localStorage.setItem('admin_user', JSON.stringify(data.user));
+    localStorage.setItem('admin_user', JSON.stringify(data.admin));
     return data;
 };
 
@@ -145,10 +160,20 @@ export const logoutAdmin = () => {
     localStorage.removeItem('admin_user');
 };
 
+export const fetchAdminProfile = async (): Promise<Admin> => {
+    const res = await fetch(`${API_URL}/admins/me`, { headers: authHeaders() });
+    if (!res.ok) {
+        handleAuthError(res);
+        throw new Error('Failed to fetch admin profile');
+    }
+    const admin = await res.json();
+    return admin;
+};
+
 // ── Rooms ──────────────────────────────────────────────────
 export const fetchRooms = async (): Promise<Room[]> => {
-    const res = await fetch(`${API_URL}/rooms`);
-    if (!res.ok) throw new Error('Failed to fetch rooms');
+    const res = await fetch(`${API_URL}/rooms`, { headers: authHeaders() });
+    if (!res.ok) { handleAuthError(res); return []; }
     return res.json();
 };
 
@@ -199,6 +224,26 @@ export const uploadRoomImages = async (files: File[]) => {
     return res.json();
 };
 
+export const uploadRoomPolicy = async (file: File): Promise<{ pdfUrl: string }> => {
+    const formData = new FormData();
+    formData.append('policy', file);
+
+    const res = await fetch(`${API_URL}/rooms/upload-policy`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
+        },
+        body: formData,
+    });
+
+    if (!res.ok) {
+        handleAuthError(res);
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to upload policy PDF');
+    }
+    return res.json();
+};
+
 export const updateRoom = async (catalog_id: string, room_id: string, data: Partial<Room>): Promise<{ message: string }> => {
     const res = await fetch(`${API_URL}/rooms/${catalog_id}/${room_id}`, {
         method: 'PUT',
@@ -216,7 +261,7 @@ export const updateRoom = async (catalog_id: string, room_id: string, data: Part
 // ── Bookings ───────────────────────────────────────────────
 export const fetchAllBookings = async (): Promise<Booking[]> => {
     const res = await fetch(`${API_URL}/bookings`, { headers: authHeaders() });
-    if (!res.ok) throw new Error('Failed to fetch bookings');
+    if (!res.ok) { handleAuthError(res); return []; }
     return res.json();
 };
 
@@ -256,6 +301,7 @@ export const cancelBooking = async (
         partial?: boolean;
         slots?: { from: string; to: string }[];
         dates?: string[];
+        partial_removals?: { date: string; slots: string[] }[];
         cancel_fromtime?: string;
         cancel_totime?: string;
     }
@@ -270,6 +316,7 @@ export const cancelBooking = async (
             cancel_date,
             cancel_reason: reason,
             partial: options?.partial || false,
+            partial_removals: options?.partial_removals || undefined,
             slots: options?.slots || [],
             dates: options?.dates || [],
             cancel_fromtime: options?.cancel_fromtime || null,
@@ -286,7 +333,7 @@ export const cancelBooking = async (
 // ── Users ──────────────────────────────────────────────────
 export const fetchAllUsers = async (): Promise<User[]> => {
     const res = await fetch(`${API_URL}/users`, { headers: authHeaders() });
-    if (!res.ok) throw new Error('Failed to fetch users');
+    if (!res.ok) { handleAuthError(res); return []; }
     return res.json();
 };
 
@@ -300,7 +347,11 @@ export const fetchCancellations = async (): Promise<Cancellation[]> => {
 // ── Notifications ──────────────────────────────────────────
 export const fetchNotifications = async (): Promise<Notification[]> => {
     const res = await fetch(`${API_URL}/notifications`, { headers: authHeaders() });
-    if (!res.ok) throw new Error('Failed to fetch notifications');
+    if (!res.ok) {
+        const text = await res.text();
+        console.error('fetchNotifications backend error:', res.status, text);
+        return []; // Return empty array to avoid Next.js red crash screen
+    }
     return res.json();
 };
 
@@ -319,5 +370,90 @@ export const markAllNotificationsAsRead = async (): Promise<{ message: string }>
         headers: authHeaders(),
     });
     if (!res.ok) throw new Error('Failed to mark all notifications as read');
+    return res.json();
+};
+
+// ── Locations ─────────────────────────────────────────────
+export interface Location {
+    location_id: string;
+    name: string;
+    address?: string;
+    city?: string;
+    description?: string;
+    google_maps_url?: string;
+    isActive: boolean;
+}
+
+export const fetchLocations = async (): Promise<Location[]> => {
+    const res = await fetch(`${API_URL}/locations`, { headers: authHeaders() });
+    if (!res.ok) { handleAuthError(res); return []; }
+    return res.json();
+};
+
+export const createLocation = async (data: Partial<Location>): Promise<{ message: string; location_id: string }> => {
+    const res = await fetch(`${API_URL}/locations`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify(data),
+    });
+    if (!res.ok) { handleAuthError(res); const err = await res.json(); throw new Error(err.error || 'Failed to create location'); }
+    return res.json();
+};
+
+export const updateLocation = async (id: string, data: Partial<Location>): Promise<{ message: string }> => {
+    const res = await fetch(`${API_URL}/locations/${id}`, {
+        method: 'PUT',
+        headers: authHeaders(),
+        body: JSON.stringify(data),
+    });
+    if (!res.ok) { handleAuthError(res); const err = await res.json(); throw new Error(err.error || 'Failed to update location'); }
+    return res.json();
+};
+
+export const deleteLocation = async (id: string): Promise<{ message: string }> => {
+    const res = await fetch(`${API_URL}/locations/${id}`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+    });
+    if (!res.ok) { handleAuthError(res); const err = await res.json(); throw new Error(err.error || 'Failed to delete location'); }
+    return res.json();
+};
+
+// ── Admins ────────────────────────────────────────────────
+export const fetchAdmins = async (): Promise<Admin[]> => {
+    const res = await fetch(`${API_URL}/admins`, { headers: authHeaders() });
+    if (!res.ok) throw new Error('Failed to fetch admins');
+    return res.json();
+};
+
+export const createAdmin = async (data: {
+    name: string; email: string; password: string; phone_no: string;
+    dept?: string; role: string; assigned_locations: string[];
+}): Promise<{ message: string; admin_id: string }> => {
+    const res = await fetch(`${API_URL}/admins`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify(data),
+    });
+    if (!res.ok) { handleAuthError(res); const err = await res.json(); throw new Error(err.error || 'Failed to create admin'); }
+    return res.json();
+};
+
+export const updateAdmin = async (id: string, data: Partial<Admin> & { password?: string }): Promise<{ message: string }> => {
+    const res = await fetch(`${API_URL}/admins/${id}`, {
+        method: 'PUT',
+        headers: authHeaders(),
+        body: JSON.stringify(data),
+    });
+    if (!res.ok) { handleAuthError(res); const err = await res.json(); throw new Error(err.error || 'Failed to update admin'); }
+    return res.json();
+};
+
+export const deleteAdmin = async (id: string): Promise<{ message: string }> => {
+    const res = await fetch(`${API_URL}/admins/${id}`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+    });
+    if (!res.ok) { handleAuthError(res); const err = await res.json(); throw new Error(err.error || 'Failed to deactivate admin'); }
     return res.json();
 };

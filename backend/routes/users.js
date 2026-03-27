@@ -22,7 +22,7 @@
 
 const express = require('express');
 const User = require('../models/User');
-const { authMiddleware, adminOnly } = require('../middleware/auth');
+const { authMiddleware, adminOnly, adminAuthMiddleware, anyAdminOnly } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -53,7 +53,7 @@ const router = express.Router();
  *  - 403: Not admin
  *  - 500: Server error
  */
-router.get('/', authMiddleware, adminOnly, async (req, res) => {
+router.get('/', adminAuthMiddleware, anyAdminOnly, async (req, res) => {
     try {
         // Fetch all users, sorted alphabetically by name
         // Password field excluded by default in Mongoose schema .select()
@@ -207,7 +207,7 @@ router.put('/:uid', authMiddleware, async (req, res) => {
  *  - 404: User not found
  *  - 500: Server error
  */
-router.delete('/:uid', authMiddleware, adminOnly, async (req, res) => {
+router.delete('/:uid', adminAuthMiddleware, anyAdminOnly, async (req, res) => {
     const { uid } = req.params;
     try {
         const result = await User.findOneAndDelete({ uid });

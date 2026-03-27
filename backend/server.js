@@ -114,6 +114,8 @@ const bookingRoutes = require('./routes/bookings');
 const userRoutes = require('./routes/users');
 const cancellationRoutes = require('./routes/cancellations');
 const notificationRoutes = require('./routes/notifications');
+const adminRoutes = require('./routes/admins');
+const locationRoutes = require('./routes/locations');
 
 // ┌─────────────────────────────────────────────────────────────────────────┐
 // │ ROUTE MOUNTING: Register all route handlers with API prefix             │
@@ -124,6 +126,8 @@ app.use('/api/bookings', bookingRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/cancellations', cancellationRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/admins', adminRoutes);
+app.use('/api/locations', locationRoutes);
 
 // ┌─────────────────────────────────────────────────────────────────────────┐
 // │ DIAGNOSTIC ROUTES: Used for testing system components                   │
@@ -202,3 +206,4 @@ connectDB().then(() => {
         console.log('   Routes: /api/auth | /api/rooms | /api/bookings | /api/users | /api/cancellations | /api/notifications');
     });
 });
+// Restart trigger

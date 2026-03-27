@@ -29,6 +29,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const User = require('../models/User');
+const Admin = require('../models/Admin');
 const { authMiddleware } = require('../middleware/auth');
 const { sendOtpEmail } = require('../utils/mail');
 const { validate } = require('../middleware/validate');
@@ -469,6 +470,101 @@ router.post('/reset-password', validate(resetPasswordSchema), async (req, res) =
         res.json({ message: 'Password has been reset successfully. You can now log in.' });
     } catch (error) {
         console.error('Reset password error:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+/**
+ * POST /api/auth/unified-login
+ * 
+ * Purpose: Authenticate across both Admin and User roles
+ */
+router.post('/unified-login', validate(loginSchema), async (req, res) => {
+    const { email, password, accountType } = req.body;
+    console.log(`[AUTH] Unified login attempt for email: ${email}, type: ${accountType || 'auto'}`);
+
+    try {
+        // 1. Check Admin if explicitly selected or if auto-detecting
+        if (accountType === 'admin' || !accountType) {
+            const admin = await Admin.findOne({ email });
+            if (admin) {
+                if (!admin.isActive) {
+                    return res.status(403).json({ error: 'Admin account is disabled.' });
+                }
+                const isMatch = await bcrypt.compare(password, admin.password);
+                if (!isMatch) {
+                    return res.status(401).json({ error: 'Invalid admin credentials.' });
+                }
+                
+                const token = jwt.sign(
+                    {
+                        admin_id: admin.admin_id,
+                        role: admin.role,
+                        assigned_locations: admin.assigned_locations,
+                        name: admin.name,
+                    },
+                    process.env.JWT_SECRET,
+                    { expiresIn: '24h' }
+                );
+
+                console.log(`[AUTH] Unified login successful. Role: admin for ${email}`);
+                return res.json({
+                    message: 'Login successful.',
+                    token,
+                    role: 'admin',
+                    admin: {
+                        admin_id: admin.admin_id,
+                        name: admin.name,
+                        email: admin.email,
+                        dept: admin.dept,
+                        phone_no: admin.phone_no,
+                        role: admin.role,
+                        assigned_locations: admin.assigned_locations,
+                    }
+                });
+            } else if (accountType === 'admin') {
+                return res.status(401).json({ error: 'Admin account not found.' });
+            }
+        }
+
+        // 2. Check User if explicitly selected or if auto-detecting couldn't find an admin
+        if (accountType === 'user' || !accountType) {
+            const user = await User.findOne({ email });
+            if (!user) {
+                return res.status(401).json({ error: 'User account not found.' });
+            }
+
+            const isMatch = await bcrypt.compare(password, user.password);
+            if (!isMatch) {
+                return res.status(401).json({ error: 'Invalid user credentials.' });
+            }
+
+            const token = jwt.sign(
+                { uid: user.uid, userrole_id: user.userrole_id, name: user.name },
+                process.env.JWT_SECRET,
+                { expiresIn: '24h' }
+            );
+
+            console.log(`[AUTH] Unified login successful. Role: user for ${email}`);
+            return res.json({
+                message: 'Login successful.',
+                token,
+                role: 'user',
+                user: {
+                    uid: user.uid,
+                    name: user.name,
+                    email: user.email,
+                    dept: user.dept,
+                    phone_no: user.phone_no,
+                    userrole_id: user.userrole_id
+                }
+            });
+        }
+        
+        return res.status(401).json({ error: 'Invalid credentials.' });
+
+    } catch (error) {
+        console.error('Unified Login error:', error);
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });

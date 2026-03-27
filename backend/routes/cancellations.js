@@ -33,7 +33,7 @@ const Cancellation = require('../models/Cancellation');
 const User = require('../models/User');
 const Room = require('../models/Room');
 const Notification = require('../models/Notification');
-const { authMiddleware, adminOnly } = require('../middleware/auth');
+const { authMiddleware, adminOnly, adminAuthMiddleware, anyAdminOnly } = require('../middleware/auth');
 const { notifyAdmins } = require('../utils/notifications');
 
 const router = express.Router();
@@ -98,10 +98,27 @@ async function getNextCancelId() {
  *  - 403: Not admin
  *  - 500: Server error
  */
-router.get('/', authMiddleware, adminOnly, async (req, res) => {
+router.get('/', adminAuthMiddleware, anyAdminOnly, async (req, res) => {
     try {
+        let locationFilter = {};
+        if (req.admin.role === 'location_admin' && (req.admin.assigned_locations || []).length > 0) {
+            const rooms = await require('../models/Room').find(
+                { location_id: { $in: req.admin.assigned_locations } }
+            ).select('catalog_id room_id').lean();
+            const roomPairs = rooms.map(r => ({ catalog_id: r.catalog_id, room_id: r.room_id }));
+            if (roomPairs.length === 0) return res.json([]);
+
+            const bookings = await require('../models/Booking').find({ $or: roomPairs }).select('booking_id').lean();
+            const bookingIds = bookings.map(b => b.booking_id);
+            if (bookingIds.length === 0) return res.json([]);
+
+            locationFilter = { booking_id: { $in: bookingIds } };
+        } else if (req.admin.role === 'location_admin') {
+            return res.json([]); // Empty locations array means no data
+        }
+
         // Fetch all cancellations, sorted by most recent first
-        const cancellations = await Cancellation.find().sort({ cancel_date: -1 }).lean();
+        const cancellations = await Cancellation.find(locationFilter).sort({ cancel_date: -1 }).lean();
 
         // Enrich each cancellation with related data
         const enriched = await Promise.all(cancellations.map(async (cn) => {
@@ -281,11 +298,11 @@ router.post('/', authMiddleware, async (req, res) => {
             // │ STEP 1: Parse current booking into date-slot map    │
             // └─────────────────────────────────────────────────────┘
             let currentSlots = booking.selected_slots 
-                ? booking.selected_slots.split(',') 
+                ? booking.selected_slots.split(',').map(s => s.trim()) 
                 : [];
             
             let currentDates = booking.selected_dates 
-                ? booking.selected_dates.split(',') 
+                ? booking.selected_dates.split(',').map(d => d.trim()) 
                 : [booking.start_date.slice(0, 10)];
 
             // If no slots defined, generate from time range
@@ -308,17 +325,17 @@ router.post('/', authMiddleware, async (req, res) => {
             // │ STEP 2: Remove specified dates/slots                │
             // └─────────────────────────────────────────────────────┘
             partial_removals.forEach(rem => {
-                const daySlots = dateMap.get(rem.date);
+                const daySlots = dateMap.get(rem.date.trim());
                 if (daySlots && rem.slots) {
                     rem.slots.forEach(s => {
                         // Normalize slot format (HH:MM → HH:MM:SS)
                         const normalizedSlot = s.includes(':00:00') 
-                            ? s 
-                            : s.split('-').map(t => t.length === 5 ? t + ':00' : t).join('-');
+                            ? s.trim() 
+                            : s.trim().split('-').map(t => t.length === 5 ? t + ':00' : t).join('-');
                         daySlots.delete(normalizedSlot);
                         
                         // Remove date if all slots are gone
-                        if (daySlots.size === 0) dateMap.delete(rem.date);
+                        if (daySlots.size === 0) dateMap.delete(rem.date.trim());
                     });
                 }
             });

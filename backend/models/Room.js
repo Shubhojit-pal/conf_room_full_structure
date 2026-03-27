@@ -142,6 +142,15 @@ const roomSchema = new mongoose.Schema({
      * Example: "https://maps.google.com/?q=22.5726,88.3639"
      */
     mapLink: { type: String },
+
+    /**
+     * location_id: References the Location document for this room.
+     * Used for access-control — location_admin can only manage rooms
+     * whose location_id is in their assigned_locations array.
+     * Example: "L-01", "L-02"
+     */
+    location_id: { type: String },
+
     /**
      * layout: Visual room layout data designed by admin
      * Type: Mixed (JSON object containing grid elements)
@@ -149,6 +158,13 @@ const roomSchema = new mongoose.Schema({
      * If null, no layout is configured for this room.
      */
     layout: { type: mongoose.Schema.Types.Mixed, default: null },
+
+    /**
+     * policy_pdf: URL or local path to the room's booking policy PDF
+     * Type: String
+     * Example: "/uploads/policy-room-R-01.pdf"
+     */
+    policy_pdf: { type: String },
 }, { timestamps: true }); // Auto-add createdAt and updatedAt fields
 
 // ┌─────────────────────────────────────────────────────────────────────────┐

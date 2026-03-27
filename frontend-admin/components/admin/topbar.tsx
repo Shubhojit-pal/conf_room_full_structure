@@ -79,7 +79,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
   };
 
   return (
-    <div className="h-16 border-b border-border/60 bg-card/50 backdrop-blur-md flex items-center justify-between px-6 lg:px-8 shrink-0 sticky top-0 z-30">
+    <div className="h-16 border-b border-border/60 bg-card/50 backdrop-blur-md flex items-center justify-between px-4 lg:px-8 shrink-0 sticky top-0 z-30">
       <div className="flex items-center gap-4 flex-1 min-w-0">
         <button 
           onClick={onMenuClick}
@@ -88,7 +88,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
           <Menu className="w-6 h-6" />
         </button>
         <div>
-          <h2 className="text-sm lg:text-lg font-bold text-foreground truncate max-w-[200px] lg:max-w-none tracking-tight">
+          <h2 className="text-sm lg:text-lg font-bold text-foreground truncate max-w-[140px] sm:max-w-[200px] lg:max-w-none tracking-tight">
             Dashboard
           </h2>
           <p className="hidden lg:block text-[10px] text-muted-foreground uppercase font-bold tracking-widest mt-0.5">
@@ -104,7 +104,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
               {mounted ? (user?.name || 'Admin User') : 'Admin User'}
             </p>
             <p className="text-[10px] text-primary font-semibold uppercase tracking-tighter">
-              Super Admin
+              {mounted && user?.role ? user.role.replace('_', ' ') : 'Super Admin'}
             </p>
           </div>
           <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center border border-primary/20 shadow-inner">
@@ -112,7 +112,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
           </div>
         </div>
 
-        <Popover>
+        {mounted && <Popover>
           <PopoverTrigger asChild>
             <button className="p-2 hover:bg-muted rounded-lg transition-colors relative">
               <Bell className="w-5 h-5 text-foreground" />
@@ -121,7 +121,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
               )}
             </button>
           </PopoverTrigger>
-          <PopoverContent className="w-[calc(100vw-2rem)] sm:w-80 p-0" align="end">
+          <PopoverContent className="w-[calc(100vw-1rem)] sm:w-80 p-0" align="end" sideOffset={8}>
             <div className="p-4 border-b border-border flex items-center justify-between">
               <h3 className="font-semibold text-sm">Notifications</h3>
               {unreadCount > 0 && (
@@ -179,11 +179,11 @@ export function TopBar({ onMenuClick }: TopBarProps) {
               </Button>
             </div>
           </PopoverContent>
-        </Popover>
+        </Popover>}
 
-        <Button variant="ghost" size="sm" className="gap-2 px-2 lg:px-4" onClick={handleLogout}>
+        <Button variant="ghost" size="sm" className="gap-2 px-2 lg:px-4 text-muted-foreground hover:text-foreground hover:bg-muted" onClick={handleLogout}>
           <LogOut className="w-4 h-4" />
-          <span className="hidden lg:inline">Logout</span>
+          <span className="hidden sm:inline">Logout</span>
         </Button>
       </div>
     </div>

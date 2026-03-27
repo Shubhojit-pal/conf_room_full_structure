@@ -28,13 +28,15 @@
 
 const express = require('express');
 const Room = require('../models/Room');
-const { authMiddleware, adminOnly } = require('../middleware/auth');
+const { authMiddleware, adminOnly, adminAuthMiddleware, anyAdminOnly, locationAdminGuard } = require('../middleware/auth');
 const multer = require('multer');
 const { v2: cloudinary } = require('cloudinary');
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const path = require('path');
+const fs = require('fs');
 const { validate } = require('../middleware/validate');
 const { roomSchema, updateRoomSchema } = require('../schemas/room');
+const jwt = require('jsonwebtoken');
 
 // Cloudinary will automatically use the CLOUDINARY_URL environment variable 
 // provided by the user in the .env file.
@@ -71,6 +73,30 @@ const upload = multer({
     limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
 });
 
+// ── PDF upload (local disk storage) ──────────────────────────────────────────
+const pdfUploadsDir = path.join(__dirname, '..', 'uploads');
+if (!fs.existsSync(pdfUploadsDir)) fs.mkdirSync(pdfUploadsDir, { recursive: true });
+
+const pdfStorage = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, pdfUploadsDir),
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, 'policy-' + uniqueSuffix + '.pdf');
+    },
+});
+
+const uploadPdf = multer({
+    storage: pdfStorage,
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit for PDFs
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype === 'application/pdf') {
+            cb(null, true);
+        } else {
+            cb(new Error('Only PDF files are allowed.'));
+        }
+    },
+});
+
 const router = express.Router();
 
 // Diagnostic route
@@ -102,7 +128,7 @@ router.get('/debug/ping', (req, res) => res.json({ message: 'Rooms router is act
  *  - 401/403: Missing token or insufficient permissions (middleware)
  *  - 500: Server error
  */
-router.post('/upload-image', authMiddleware, adminOnly, upload.single('image'), (req, res) => {
+router.post('/upload-image', adminAuthMiddleware, anyAdminOnly, upload.single('image'), (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ error: 'No file uploaded.' });
@@ -121,7 +147,7 @@ router.post('/upload-image', authMiddleware, adminOnly, upload.single('image'), 
  * 
  * Purpose: Upload multiple room images
  */
-router.post('/upload-images', authMiddleware, adminOnly, upload.array('images', 10), (req, res) => {
+router.post('/upload-images', adminAuthMiddleware, anyAdminOnly, upload.array('images', 10), (req, res) => {
     console.log('[DEBUG] POST /upload-images hit');
     try {
         if (!req.files || req.files.length === 0) {
@@ -131,6 +157,27 @@ router.post('/upload-images', authMiddleware, adminOnly, upload.array('images', 
         res.json({ imageUrls });
     } catch (error) {
         console.error('Error uploading images:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+/**
+ * POST /api/rooms/upload-policy (ADMIN ONLY)
+ *
+ * Purpose: Upload a room's booking policy PDF to the server's uploads/ directory.
+ *
+ * Request: multipart/form-data with field name "policy"
+ * Success Response (200): { pdfUrl: "/uploads/policy-<timestamp>.pdf" }
+ */
+router.post('/upload-policy', adminAuthMiddleware, anyAdminOnly, uploadPdf.single('policy'), (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'No PDF file uploaded.' });
+        }
+        const pdfUrl = `/uploads/${req.file.filename}`;
+        res.json({ pdfUrl });
+    } catch (error) {
+        console.error('Error uploading policy PDF:', error);
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });
@@ -166,8 +213,25 @@ router.post('/upload-images', authMiddleware, adminOnly, upload.array('images', 
  */
 router.get('/', async (req, res) => {
     try {
+        let locationFilter = {};
+
+        // Optional specific admin token check
+        const authHeader = req.header('Authorization');
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            const token = authHeader.replace('Bearer ', '');
+            try {
+                const decoded = jwt.verify(token, process.env.JWT_SECRET);
+                // If it's an admin and they have a location_admin role
+                if (decoded.role === 'location_admin' && Array.isArray(decoded.assigned_locations)) {
+                    locationFilter = { location_id: { $in: decoded.assigned_locations } };
+                }
+            } catch (err) {
+                // Ignore invalid token, just return all rooms (public view)
+            }
+        }
+
         // Use .lean() for better performance on read-only queries
-        const rooms = await Room.find().lean();
+        const rooms = await Room.find(locationFilter).lean();
         res.json(rooms);
     } catch (error) {
         console.error('Error fetching rooms:', error);
@@ -248,10 +312,16 @@ router.get('/:catalog_id/:room_id', async (req, res) => {
  *  - 401/403: Missing token or insufficient permissions
  *  - 500: Server error
  */
-router.post('/', authMiddleware, adminOnly, validate(roomSchema), async (req, res) => {
+router.post(
+    '/',
+    adminAuthMiddleware,
+    anyAdminOnly,
+    locationAdminGuard((req) => req.body.location_id),
+    validate(roomSchema),
+    async (req, res) => {
     const { 
         catalog_id, room_id, room_name, capacity, location, amenities, 
-        status, floor_no, room_number, availability, image_url, image_urls, mapLink, layout 
+        status, floor_no, room_number, availability, image_url, image_urls, mapLink, layout, location_id, room_type, policy_pdf
     } = req.body;
 
     try {
@@ -270,7 +340,10 @@ router.post('/', authMiddleware, adminOnly, validate(roomSchema), async (req, re
             image_urls,
             mapLink,
             layout: layout || null,
-            availability: availability || 'available'
+            availability: availability || 'available',
+            location_id,
+            room_type,
+            policy_pdf,
         });
         res.status(201).json({ 
             message: 'Room added successfully.', 
@@ -311,19 +384,33 @@ router.post('/', authMiddleware, adminOnly, validate(roomSchema), async (req, re
  *  - 401/403: Missing token or insufficient permissions
  *  - 500: Server error
  */
-router.put('/:catalog_id/:room_id', authMiddleware, adminOnly, validate(updateRoomSchema), async (req, res) => {
+router.put(
+    '/:catalog_id/:room_id',
+    adminAuthMiddleware,
+    anyAdminOnly,
+    validate(updateRoomSchema),
+    async (req, res) => {
     const { catalog_id, room_id } = req.params;
     const { 
         room_name, capacity, location, amenities, status, 
-        floor_no, room_number, availability, image_url, image_urls, mapLink, layout 
+        floor_no, room_number, availability, image_url, image_urls, mapLink, layout, location_id, room_type, policy_pdf
     } = req.body;
+
+    // For location_admin, validate they own the room's location
+    if (req.admin.role === 'location_admin') {
+        const room = await require('../models/Room').findOne({ catalog_id, room_id }).lean();
+        if (!room) return res.status(404).json({ error: 'Room not found.' });
+        if (!req.admin.assigned_locations.includes(room.location_id)) {
+            return res.status(403).json({ error: 'Access denied. You do not manage this room\'s location.' });
+        }
+    }
 
     try {
         // Find and update room, returning updated document
         const result = await Room.findOneAndUpdate(
             { catalog_id, room_id },
-            { room_name, capacity, location, amenities, status, floor_no, room_number, availability, image_url, image_urls, mapLink, layout },
-            { returnDocument: 'after' } // Return updated document
+            { room_name, capacity, location, amenities, status, floor_no, room_number, availability, image_url, image_urls, mapLink, layout, location_id, room_type, policy_pdf },
+            { returnDocument: 'after' }
         );
         if (!result) {
             return res.status(404).json({ error: 'Room not found.' });
@@ -361,9 +448,17 @@ router.put('/:catalog_id/:room_id', authMiddleware, adminOnly, validate(updateRo
  *  - 401/403: Missing token or insufficient permissions
  *  - 500: Server error
  */
-router.delete('/:catalog_id/:room_id', authMiddleware, adminOnly, async (req, res) => {
+router.delete('/:catalog_id/:room_id', adminAuthMiddleware, anyAdminOnly, async (req, res) => {
     const { catalog_id, room_id } = req.params;
     try {
+        // location_admin: check ownership
+        if (req.admin.role === 'location_admin') {
+            const room = await Room.findOne({ catalog_id, room_id }).lean();
+            if (!room) return res.status(404).json({ error: 'Room not found.' });
+            if (!req.admin.assigned_locations.includes(room.location_id)) {
+                return res.status(403).json({ error: 'Access denied. You do not manage this room\'s location.' });
+            }
+        }
         // Find and delete the room
         const result = await Room.findOneAndDelete({ catalog_id, room_id });
         if (!result) {
